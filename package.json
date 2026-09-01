@@ -1,0 +1,25 @@
+{
+  "name": "siteflow",
+  "version": "0.0.1",
+  "private": true,
+  "description": "SiteFlow AI — Construction Operations OS",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "test": "turbo run test",
+    "dev": "turbo run dev --parallel",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "2.10.12",
+    "prettier": "3.5.3"
+  },
+  "packageManager": "pnpm@11.9.0"
+}

@@ -1,0 +1,28 @@
+packages:
+  - "server"
+
+onlyBuiltDependencies:
+  - esbuild
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma
+
+minimumReleaseAgeExclude:
+  - "@typescript-eslint/eslint-plugin@8.69.0"
+  - "@typescript-eslint/parser@8.69.0"
+  - "@typescript-eslint/project-service@8.69.0"
+  - "@typescript-eslint/scope-manager@8.69.0"
+  - "@typescript-eslint/tsconfig-utils@8.69.0"
+  - "@typescript-eslint/type-utils@8.69.0"
+  - "@typescript-eslint/types@8.69.0"
+  - "@typescript-eslint/typescript-estree@8.69.0"
+  - "@typescript-eslint/utils@8.69.0"
+  - "@typescript-eslint/visitor-keys@8.69.0"
+  - "typescript-eslint@8.69.0"
+
+allowBuilds:
+  '@prisma/client': set this to true or false
+  '@prisma/engines': set this to true or false
+  esbuild: set this to true or false
+  msgpackr-extract: set this to true or false
+  prisma: set this to true or false

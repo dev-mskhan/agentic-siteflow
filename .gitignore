@@ -1,1 +1,4 @@
 .kiro
+node_modules/
+dist/
+.turbo/
