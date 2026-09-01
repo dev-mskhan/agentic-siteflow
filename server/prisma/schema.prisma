@@ -1,6 +1,5 @@
 // SiteFlow AI — Prisma schema
-// Phase 0.2: datasource + generator + minimal sentinel model.
-// Business domain models are added in Phase 1+.
+// Phase 1.1: Organizations, Users, OrganizationMembers
 
 generator client {
   provider = "prisma-client-js"
@@ -13,7 +12,6 @@ datasource db {
 
 // Sentinel model — exists only so Prisma can generate a migration and client.
 // Do NOT use this model in application business logic.
-// Business domain tables are added in Phase 1+.
 model SystemInfo {
   id        Int      @id @default(autoincrement())
   key       String   @unique
@@ -21,4 +19,137 @@ model SystemInfo {
   createdAt DateTime @default(now())
 
   @@map("_system_info")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum OrgRole {
+  ADMIN
+  MEMBER
+  BILLING
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+// ─── Identity Models ──────────────────────────────────────────────────────────
+
+model Organization {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  plan      String    @default("free")
+  status    OrgStatus @default(ACTIVE)
+  settings  Json      @default("{}")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  members      OrganizationMember[]
+  sessions     Session[]
+  invitations  Invitation[]
+
+  @@map("organizations")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified Boolean    @default(false)
+  firstName     String
+  lastName      String
+  avatarUrl     String?
+  passwordHash  String?    // Nullable to support future OAuth / SSO users
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  memberships     OrganizationMember[]
+  sessions        Session[]
+  sentInvitations Invitation[]         @relation("SentInvitations")
+
+  @@map("users")
+}
+
+model OrganizationMember {
+  orgId     String
+  userId    String
+  role      OrgRole  @default(MEMBER)
+  joinedAt  DateTime @default(now())
+  invitedBy String?
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([orgId, userId])
+  @@map("organization_members")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  orgId        String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+  isRevoked    Boolean  @default(false)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  orgId       String
+  email       String
+  role        OrgRole          @default(MEMBER)
+  token       String           @unique
+  expiresAt   DateTime
+  invitedById String
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  status      InvitationStatus @default(PENDING)
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("SentInvitations", fields: [invitedById], references: [id])
+
+  @@map("invitations")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  orgId     String?
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([entity, entityId])
+  @@map("audit_logs")
 }

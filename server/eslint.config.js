@@ -12,9 +12,16 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
+        // tsconfig.eslint.json includes both src and tests
         projectService: {
-          allowDefaultProject: ["tests/*.ts"],
-          defaultProject: "./tsconfig.test.json",
+          defaultProject: "./tsconfig.eslint.json",
+          allowDefaultProject: [
+            "tests/*.ts",
+            "tests/unit/*.ts",
+            "tests/integration/*.ts",
+            "tests/utils/*.ts",
+          ],
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 50,
         },
         tsconfigRootDir: __dirname,
       },
@@ -33,6 +40,14 @@ export default tseslint.config(
         "error",
         { prefer: "type-imports" },
       ],
+    },
+  },
+  // Relax some rules in test files that don't apply in a testing context
+  {
+    files: ["tests/**/*.ts"],
+    rules: {
+      "@typescript-eslint/unbound-method": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
     },
   },
   {

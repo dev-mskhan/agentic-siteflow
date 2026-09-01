@@ -14,6 +14,10 @@ const envSchema = z.object({
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000), // 1 minute
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100), // requests per window
+  // JWT
+  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+  JWT_EXPIRES_IN: z.string().default("15m"),
+  REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
 });
 
 export type Env = z.infer<typeof envSchema>;
