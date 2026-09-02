@@ -28,6 +28,13 @@ export const Permissions = {
   // Finance (project-level)
   PAYMENT_APPROVE: "payment:approve",
   CHANGE_ORDER_APPROVE: "change_order:approve",
+
+  // Estimate (org-level)
+  ESTIMATE_CREATE: "estimate:create",
+  ESTIMATE_READ: "estimate:read",
+  ESTIMATE_UPDATE: "estimate:update",
+  ESTIMATE_DELETE: "estimate:delete",
+  ESTIMATE_APPROVE: "estimate:approve",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];

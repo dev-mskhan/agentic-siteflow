@@ -16,18 +16,27 @@ const ROLE_PERMISSIONS: Record<OrgRole, Set<Permission>> = {
     Permissions.PROJECT_UPDATE,
     Permissions.PROJECT_DELETE,
     Permissions.PROJECT_MANAGE_MEMBERS,
+    // Estimate permissions
+    Permissions.ESTIMATE_CREATE,
+    Permissions.ESTIMATE_READ,
+    Permissions.ESTIMATE_UPDATE,
+    Permissions.ESTIMATE_DELETE,
+    Permissions.ESTIMATE_APPROVE,
   ]),
   MEMBER: new Set([
     Permissions.ORGANIZATION_READ,
     Permissions.USER_READ,
     Permissions.USER_UPDATE_OWN,
     Permissions.PROJECT_READ,
+    Permissions.ESTIMATE_READ,
   ]),
   BILLING: new Set([
     Permissions.ORGANIZATION_READ,
     Permissions.USER_READ,
     Permissions.USER_UPDATE_OWN,
     Permissions.PROJECT_READ,
+    Permissions.ESTIMATE_READ,
+    Permissions.ESTIMATE_APPROVE,
   ]),
 };
 

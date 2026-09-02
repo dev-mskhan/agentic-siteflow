@@ -84,6 +84,9 @@ model Organization {
   projectMembers ProjectMember[]
   projectPhases  ProjectPhase[]
   costCodes      CostCode[]
+  estimates      Estimate[]
+  rateCards      RateCard[]
+  laborRates     LaborRate[]
 
   @@map("organizations")
 }
@@ -100,11 +103,13 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  memberships        OrganizationMember[]
-  sessions           Session[]
-  sentInvitations    Invitation[]         @relation("SentInvitations")
-  createdProjects    Project[]            @relation("CreatedProjects")
-  projectMemberships ProjectMember[]
+  memberships              OrganizationMember[]
+  sessions                 Session[]
+  sentInvitations          Invitation[]         @relation("SentInvitations")
+  createdProjects          Project[]            @relation("CreatedProjects")
+  projectMemberships       ProjectMember[]
+  createdEstimates         Estimate[]           @relation("CreatedEstimates")
+  createdEstimateVersions  EstimateVersion[]    @relation("CreatedEstimateVersions")
 
   @@map("users")
 }
@@ -211,6 +216,7 @@ model Project {
   members         ProjectMember[]
   phases          ProjectPhase[]
   projectSettings ProjectSettings?
+  estimates       Estimate[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -279,6 +285,7 @@ model ProjectPhase {
 
   project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  boqItems     BoqItem[]
 
   @@index([projectId])
   @@map("project_phases")
@@ -299,8 +306,175 @@ model CostCode {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   parent       CostCode?    @relation("CostCodeHierarchy", fields: [parentId], references: [id])
   children     CostCode[]   @relation("CostCodeHierarchy")
+  boqItems     BoqItem[]
 
   @@unique([orgId, code])
   @@index([orgId])
   @@map("cost_codes")
+}
+
+// ─── Pre-Construction Enums ───────────────────────────────────────────────────
+
+enum EstimateStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CONVERTED
+  ARCHIVED
+}
+
+// ─── Pre-Construction Models ──────────────────────────────────────────────────
+
+model Estimate {
+  id                 String         @id @default(cuid())
+  orgId              String
+  estimateNumber     String
+  name               String
+  description        String?
+  status             EstimateStatus @default(DRAFT)
+  version            Int            @default(1)
+  clientName         String?
+  clientContact      String?
+  siteAddress        String?
+  siteCity           String?
+  siteCountry        String?
+  currency           String         @default("USD")
+  validUntil         DateTime?
+  notes              String?
+  scope              String?
+  subtotal           Decimal        @default(0) @db.Decimal(18, 4)
+  overhead           Decimal        @default(0) @db.Decimal(18, 4)
+  contingency        Decimal        @default(0) @db.Decimal(18, 4)
+  markup             Decimal        @default(0) @db.Decimal(18, 4)
+  totalCost          Decimal        @default(0) @db.Decimal(18, 4)
+  sellingPrice       Decimal        @default(0) @db.Decimal(18, 4)
+  margin             Decimal        @default(0) @db.Decimal(5, 4)
+  overheadPercent    Decimal        @default(0) @db.Decimal(5, 4)
+  contingencyPercent Decimal        @default(0) @db.Decimal(5, 4)
+  markupPercent      Decimal        @default(0) @db.Decimal(5, 4)
+  projectId          String?
+  createdById        String
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy    User             @relation("CreatedEstimates", fields: [createdById], references: [id])
+  project      Project?         @relation(fields: [projectId], references: [id])
+  versions     EstimateVersion[]
+  boqItems     BoqItem[]
+
+  @@unique([orgId, estimateNumber])
+  @@index([orgId])
+  @@index([orgId, status])
+  @@map("estimates")
+}
+
+model EstimateVersion {
+  id          String   @id @default(cuid())
+  estimateId  String
+  orgId       String
+  version     Int
+  snapshot    Json
+  changeNote  String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  estimate  Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("CreatedEstimateVersions", fields: [createdById], references: [id])
+
+  @@unique([estimateId, version])
+  @@index([estimateId])
+  @@map("estimate_versions")
+}
+
+model BoqItem {
+  id                String   @id @default(cuid())
+  estimateId        String
+  orgId             String
+  itemCode          String?
+  description       String
+  category          String?
+  unit              String
+  quantity          Decimal  @db.Decimal(18, 4)
+  materialRate      Decimal  @default(0) @db.Decimal(18, 4)
+  laborRate         Decimal  @default(0) @db.Decimal(18, 4)
+  equipmentRate     Decimal  @default(0) @db.Decimal(18, 4)
+  subcontractorRate Decimal  @default(0) @db.Decimal(18, 4)
+  directCostRate    Decimal  @default(0) @db.Decimal(18, 4)
+  directCostAmount  Decimal  @default(0) @db.Decimal(18, 4)
+  markupPercent     Decimal  @default(0) @db.Decimal(5, 4)
+  sellingRate       Decimal  @default(0) @db.Decimal(18, 4)
+  amount            Decimal  @default(0) @db.Decimal(18, 4)
+  phaseId           String?
+  costCodeId        String?
+  notes             String?
+  order             Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  estimate  Estimate      @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  phase     ProjectPhase? @relation(fields: [phaseId], references: [id])
+  costCode  CostCode?     @relation(fields: [costCodeId], references: [id])
+
+  @@index([estimateId])
+  @@index([orgId])
+  @@map("boq_items")
+}
+
+model RateCard {
+  id            String   @id @default(cuid())
+  orgId         String
+  name          String
+  description   String?
+  currency      String   @default("USD")
+  isActive      Boolean  @default(true)
+  effectiveDate DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  rateItems    RateCardItem[]
+
+  @@index([orgId])
+  @@map("rate_cards")
+}
+
+model RateCardItem {
+  id          String   @id @default(cuid())
+  rateCardId  String
+  orgId       String
+  type        String
+  code        String?
+  description String
+  unit        String
+  rate        Decimal  @db.Decimal(18, 4)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rateCard RateCard @relation(fields: [rateCardId], references: [id], onDelete: Cascade)
+
+  @@index([rateCardId])
+  @@map("rate_card_items")
+}
+
+model LaborRate {
+  id             String   @id @default(cuid())
+  orgId          String
+  classification String
+  description    String?
+  unit           String   @default("hr")
+  rate           Decimal  @db.Decimal(18, 4)
+  currency       String   @default("USD")
+  isActive       Boolean  @default(true)
+  effectiveDate  DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, classification])
+  @@index([orgId])
+  @@map("labor_rates")
 }
