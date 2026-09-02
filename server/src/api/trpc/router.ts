@@ -4,6 +4,8 @@ import { organizationRouter } from "../../modules/organizations/organization.rou
 import { userRouter } from "../../modules/users/user.router.js";
 import { authRouter } from "../../modules/auth/auth.router.js";
 import { auditRouter } from "../../modules/audit/audit.router.js";
+import { projectRouter } from "../../modules/projects/project.router.js";
+import { costCodeRouter } from "../../modules/projects/cost-code.router.js";
 
 /**
  * Root tRPC application router.
@@ -15,6 +17,8 @@ export const appRouter = router({
   user: userRouter,
   auth: authRouter,
   audit: auditRouter,
+  project: projectRouter,
+  costCode: costCodeRouter,
 });
 
 // Export the inferred type for the client

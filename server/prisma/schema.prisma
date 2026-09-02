@@ -47,6 +47,24 @@ enum InvitationStatus {
   REVOKED
 }
 
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectRole {
+  PROJECT_MANAGER
+  FINANCE
+  PROCUREMENT
+  SITE_SUPERVISOR
+  SUBCONTRACTOR
+  CLIENT
+  VIEWER
+}
+
 // ─── Identity Models ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -59,9 +77,13 @@ model Organization {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  members      OrganizationMember[]
-  sessions     Session[]
-  invitations  Invitation[]
+  members        OrganizationMember[]
+  sessions       Session[]
+  invitations    Invitation[]
+  projects       Project[]
+  projectMembers ProjectMember[]
+  projectPhases  ProjectPhase[]
+  costCodes      CostCode[]
 
   @@map("organizations")
 }
@@ -78,9 +100,11 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  memberships     OrganizationMember[]
-  sessions        Session[]
-  sentInvitations Invitation[]         @relation("SentInvitations")
+  memberships        OrganizationMember[]
+  sessions           Session[]
+  sentInvitations    Invitation[]         @relation("SentInvitations")
+  createdProjects    Project[]            @relation("CreatedProjects")
+  projectMemberships ProjectMember[]
 
   @@map("users")
 }
@@ -152,4 +176,131 @@ model AuditLog {
   @@index([userId])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ─── Project Models ───────────────────────────────────────────────────────────
+
+model Project {
+  id               String        @id @default(cuid())
+  orgId            String
+  name             String
+  description      String?
+  projectNumber    String?
+  status           ProjectStatus @default(DRAFT)
+  projectType      String?
+  currency         String        @default("USD")
+  clientName       String?
+  clientContact    String?
+  siteAddress      String?
+  siteCity         String?
+  siteCountry      String?
+  contractValue    Decimal?      @db.Decimal(18, 4)
+  contractDate     DateTime?
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  actualStartDate  DateTime?
+  actualEndDate    DateTime?
+  budget           Decimal?      @db.Decimal(18, 4)
+  settings         Json          @default("{}")
+  createdById      String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy       User            @relation("CreatedProjects", fields: [createdById], references: [id])
+  members         ProjectMember[]
+  phases          ProjectPhase[]
+  projectSettings ProjectSettings?
+
+  @@index([orgId])
+  @@index([orgId, status])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  orgId     String
+  role      ProjectRole
+  addedById String?
+  createdAt DateTime    @default(now())
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([orgId])
+  @@map("project_members")
+}
+
+model ProjectSettings {
+  id                        String   @id @default(cuid())
+  projectId                 String   @unique
+  currency                  String   @default("USD")
+  currencySymbol            String   @default("$")
+  timezone                  String   @default("UTC")
+  dateFormat                String   @default("YYYY-MM-DD")
+  unitSystem                String   @default("metric")
+  country                   String   @default("US")
+  taxRate                   Decimal  @default(0) @db.Decimal(5, 4)
+  taxLabel                  String   @default("Tax")
+  retainagePercent          Decimal  @default(0) @db.Decimal(5, 4)
+  paymentTermsDays          Int      @default(30)
+  requireChangeOrderApproval Boolean @default(true)
+  requirePaymentApproval    Boolean  @default(true)
+  customFields              Json     @default("{}")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_settings")
+}
+
+model ProjectPhase {
+  id               String    @id @default(cuid())
+  projectId        String
+  orgId            String
+  name             String
+  description      String?
+  color            String?
+  order            Int       @default(0)
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  actualStartDate  DateTime?
+  actualEndDate    DateTime?
+  status           String    @default("ACTIVE")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_phases")
+}
+
+model CostCode {
+  id          String   @id @default(cuid())
+  orgId       String
+  code        String
+  name        String
+  description String?
+  category    String?
+  parentId    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent       CostCode?    @relation("CostCodeHierarchy", fields: [parentId], references: [id])
+  children     CostCode[]   @relation("CostCodeHierarchy")
+
+  @@unique([orgId, code])
+  @@index([orgId])
+  @@map("cost_codes")
 }
