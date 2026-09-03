@@ -1,7 +1,7 @@
+.env
 .kiro
 node_modules/
 dist/
 .turbo/
 server/prisma/migrations/
 .codebase-memory
-.env
