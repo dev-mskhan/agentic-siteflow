@@ -9,6 +9,11 @@ import { costCodeRouter } from "../../modules/projects/cost-code.router.js";
 import { estimateRouter } from "../../modules/estimating/estimate.router.js";
 import { boqRouter } from "../../modules/estimating/boq.router.js";
 import { ratesRouter } from "../../modules/estimating/rates.router.js";
+import { taskRouter } from "../../modules/scheduling/task.router.js";
+import { scheduleRouter } from "../../modules/scheduling/schedule.router.js";
+import { milestoneRouter } from "../../modules/scheduling/milestone.router.js";
+import { dailyLogRouter } from "../../modules/field-ops/daily-log.router.js";
+import { issueRouter } from "../../modules/field-ops/issue.router.js";
 
 /**
  * Root tRPC application router.
@@ -25,6 +30,11 @@ export const appRouter = router({
   estimate: estimateRouter,
   boq: boqRouter,
   rates: ratesRouter,
+  task: taskRouter,
+  schedule: scheduleRouter,
+  milestone: milestoneRouter,
+  dailyLog: dailyLogRouter,
+  issue: issueRouter,
 });
 
 // Export the inferred type for the client

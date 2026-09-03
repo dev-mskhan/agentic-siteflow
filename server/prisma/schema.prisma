@@ -65,6 +65,36 @@ enum ProjectRole {
   VIEWER
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  WONT_FIX
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 // ─── Identity Models ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -77,16 +107,21 @@ model Organization {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  members        OrganizationMember[]
-  sessions       Session[]
-  invitations    Invitation[]
-  projects       Project[]
-  projectMembers ProjectMember[]
-  projectPhases  ProjectPhase[]
-  costCodes      CostCode[]
-  estimates      Estimate[]
-  rateCards      RateCard[]
-  laborRates     LaborRate[]
+  members           OrganizationMember[]
+  sessions          Session[]
+  invitations       Invitation[]
+  projects          Project[]
+  projectMembers    ProjectMember[]
+  projectPhases     ProjectPhase[]
+  costCodes         CostCode[]
+  estimates         Estimate[]
+  rateCards         RateCard[]
+  laborRates        LaborRate[]
+  tasks             Task[]
+  taskHistory       TaskHistory[]
+  taskDependencies  TaskDependency[]
+  scheduleBaselines ScheduleBaseline[]
+  taskDateChanges   TaskDateChange[]
 
   @@map("organizations")
 }
@@ -98,18 +133,27 @@ model User {
   firstName     String
   lastName      String
   avatarUrl     String?
-  passwordHash  String?    // Nullable to support future OAuth / SSO users
+  passwordHash  String? // Nullable to support future OAuth / SSO users
   status        UserStatus @default(ACTIVE)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  memberships              OrganizationMember[]
-  sessions                 Session[]
-  sentInvitations          Invitation[]         @relation("SentInvitations")
-  createdProjects          Project[]            @relation("CreatedProjects")
-  projectMemberships       ProjectMember[]
-  createdEstimates         Estimate[]           @relation("CreatedEstimates")
-  createdEstimateVersions  EstimateVersion[]    @relation("CreatedEstimateVersions")
+  memberships             OrganizationMember[]
+  sessions                Session[]
+  sentInvitations         Invitation[]         @relation("SentInvitations")
+  createdProjects         Project[]            @relation("CreatedProjects")
+  projectMemberships      ProjectMember[]
+  createdEstimates        Estimate[]           @relation("CreatedEstimates")
+  createdEstimateVersions EstimateVersion[]    @relation("CreatedEstimateVersions")
+  assignedTasks           Task[]               @relation("AssignedTasks")
+  createdTasks            Task[]               @relation("CreatedTasks")
+  taskHistory             TaskHistory[]        @relation("ChangedTaskHistory")
+  capturedBaselines       ScheduleBaseline[]   @relation("CapturedBaselines")
+  taskDateChanges         TaskDateChange[]
+  createdMilestones       Milestone[]          @relation("CreatedMilestones")
+  createdDailyLogs        DailyLog[]            @relation("CreatedDailyLogs")
+  responsibleIssues       Issue[]              @relation("ResponsibleIssues")
+  createdIssues            Issue[]              @relation("CreatedIssues")
 
   @@map("users")
 }
@@ -211,12 +255,20 @@ model Project {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  createdBy       User            @relation("CreatedProjects", fields: [createdById], references: [id])
-  members         ProjectMember[]
-  phases          ProjectPhase[]
-  projectSettings ProjectSettings?
-  estimates       Estimate[]
+  organization     Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy        User              @relation("CreatedProjects", fields: [createdById], references: [id])
+  members          ProjectMember[]
+  phases           ProjectPhase[]
+  projectSettings  ProjectSettings?
+  estimates        Estimate[]
+  tasks            Task[]
+  taskHistory      TaskHistory[]
+  taskDependencies TaskDependency[]
+  scheduleBaseline ScheduleBaseline?
+  taskDateChanges  TaskDateChange[]
+  milestones       Milestone[]
+  dailyLogs        DailyLog[]
+  issues            Issue[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -244,27 +296,153 @@ model ProjectMember {
 }
 
 model ProjectSettings {
-  id                        String   @id @default(cuid())
-  projectId                 String   @unique
-  currency                  String   @default("USD")
-  currencySymbol            String   @default("$")
-  timezone                  String   @default("UTC")
-  dateFormat                String   @default("YYYY-MM-DD")
-  unitSystem                String   @default("metric")
-  country                   String   @default("US")
-  taxRate                   Decimal  @default(0) @db.Decimal(5, 4)
-  taxLabel                  String   @default("Tax")
-  retainagePercent          Decimal  @default(0) @db.Decimal(5, 4)
-  paymentTermsDays          Int      @default(30)
-  requireChangeOrderApproval Boolean @default(true)
-  requirePaymentApproval    Boolean  @default(true)
-  customFields              Json     @default("{}")
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  id                         String   @id @default(cuid())
+  projectId                  String   @unique
+  currency                   String   @default("USD")
+  currencySymbol             String   @default("$")
+  timezone                   String   @default("UTC")
+  dateFormat                 String   @default("YYYY-MM-DD")
+  unitSystem                 String   @default("metric")
+  country                    String   @default("US")
+  taxRate                    Decimal  @default(0) @db.Decimal(5, 4)
+  taxLabel                   String   @default("Tax")
+  retainagePercent           Decimal  @default(0) @db.Decimal(5, 4)
+  paymentTermsDays           Int      @default(30)
+  requireChangeOrderApproval Boolean  @default(true)
+  requirePaymentApproval     Boolean  @default(true)
+  customFields               Json     @default("{}")
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("project_settings")
+}
+
+model Task {
+  id               String       @id @default(cuid())
+  projectId        String
+  orgId            String
+  phaseId          String?
+  costCodeId       String?
+  assigneeId       String?
+  name             String
+  description      String?
+  status           TaskStatus   @default(TODO)
+  priority         TaskPriority @default(MEDIUM)
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  actualStartDate  DateTime?
+  actualEndDate    DateTime?
+  durationDays     Int?
+  progress         Int          @default(0)
+  notes            String?
+  createdById      String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase        ProjectPhase?    @relation(fields: [phaseId], references: [id])
+  costCode     CostCode?        @relation(fields: [costCodeId], references: [id])
+  assignee     User?            @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  createdBy    User             @relation("CreatedTasks", fields: [createdById], references: [id])
+  history      TaskHistory[]
+  dateChanges  TaskDateChange[]
+  milestones   Milestone[] @relation("MilestoneLinkedTask")
+  linkedIssues Issue[]     @relation("IssueLinkedTask")
+  dependencies TaskDependency[] @relation("TaskPredecessors")
+  dependents   TaskDependency[] @relation("TaskSuccessors")
+
+  @@index([projectId])
+  @@index([orgId])
+  @@index([projectId, status])
+  @@index([phaseId])
+  @@map("tasks")
+}
+
+model ScheduleBaseline {
+  id            String   @id @default(cuid())
+  projectId     String   @unique
+  orgId         String
+  name          String   @default("Original Baseline")
+  capturedAt    DateTime @default(now())
+  capturedById  String
+  taskSnapshots Json
+  createdAt     DateTime @default(now())
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  capturedBy   User         @relation("CapturedBaselines", fields: [capturedById], references: [id])
+
+  @@index([projectId])
+  @@index([orgId])
+  @@map("schedule_baselines")
+}
+
+model TaskDateChange {
+  id          String   @id @default(cuid())
+  taskId      String
+  projectId   String
+  orgId       String
+  field       String
+  oldValue    String?
+  newValue    String?
+  reason      String
+  changedById String
+  changedAt   DateTime @default(now())
+
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  changedBy    User         @relation(fields: [changedById], references: [id])
+
+  @@index([taskId])
+  @@index([projectId])
+  @@index([orgId])
+  @@map("task_date_changes")
+}
+
+model TaskHistory {
+  id          String   @id @default(cuid())
+  taskId      String
+  projectId   String
+  orgId       String
+  field       String
+  oldValue    String?
+  newValue    String?
+  changedById String
+  changedAt   DateTime @default(now())
+
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  changedBy    User         @relation("ChangedTaskHistory", fields: [changedById], references: [id])
+
+  @@index([taskId])
+  @@map("task_history")
+}
+
+model TaskDependency {
+  id            String   @id @default(cuid())
+  projectId     String
+  orgId         String
+  predecessorId String
+  successorId   String
+  type          String   @default("FS")
+  lagDays       Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  predecessor  Task         @relation("TaskPredecessors", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor    Task         @relation("TaskSuccessors", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorId, successorId])
+  @@index([projectId])
+  @@index([successorId])
+  @@index([predecessorId])
+  @@map("task_dependencies")
 }
 
 model ProjectPhase {
@@ -286,6 +464,7 @@ model ProjectPhase {
   project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   boqItems     BoqItem[]
+  tasks        Task[]
 
   @@index([projectId])
   @@map("project_phases")
@@ -307,6 +486,7 @@ model CostCode {
   parent       CostCode?    @relation("CostCodeHierarchy", fields: [parentId], references: [id])
   children     CostCode[]   @relation("CostCodeHierarchy")
   boqItems     BoqItem[]
+  tasks        Task[]
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -358,9 +538,9 @@ model Estimate {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
-  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  createdBy    User             @relation("CreatedEstimates", fields: [createdById], references: [id])
-  project      Project?         @relation(fields: [projectId], references: [id])
+  organization Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy    User              @relation("CreatedEstimates", fields: [createdById], references: [id])
+  project      Project?          @relation(fields: [projectId], references: [id])
   versions     EstimateVersion[]
   boqItems     BoqItem[]
 
@@ -413,9 +593,9 @@ model BoqItem {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  estimate  Estimate      @relation(fields: [estimateId], references: [id], onDelete: Cascade)
-  phase     ProjectPhase? @relation(fields: [phaseId], references: [id])
-  costCode  CostCode?     @relation(fields: [costCodeId], references: [id])
+  estimate Estimate      @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  phase    ProjectPhase? @relation(fields: [phaseId], references: [id])
+  costCode CostCode?     @relation(fields: [costCodeId], references: [id])
 
   @@index([estimateId])
   @@index([orgId])
@@ -477,4 +657,89 @@ model LaborRate {
   @@unique([orgId, classification])
   @@index([orgId])
   @@map("labor_rates")
+}
+
+model Milestone {
+  id           String   @id @default(cuid())
+  projectId    String
+  orgId        String
+  name         String
+  description  String?
+  dueDate      DateTime
+  status       String   @default("PENDING")
+  linkedTaskId String?
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask Task?  @relation("MilestoneLinkedTask", fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  createdBy User    @relation("CreatedMilestones", fields: [createdById], references: [id])
+
+  @@index([projectId])
+  @@map("milestones")
+}
+
+model DailyLog {
+  id                  String   @id @default(cuid())
+  projectId           String
+  orgId               String
+  logDate             DateTime
+  weather             String?
+  temperature         Int?
+  siteConditions      String?
+  workerCount         Int?
+  subcontractorCount  Int?
+  equipmentNotes      String?
+  workPerformed       String
+  quantitiesCompleted Json?
+  deliveries          Json?
+  delays              Json?
+  safetyEvents        Json?
+  notes               String?
+  createdById         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("CreatedDailyLogs", fields: [createdById], references: [id])
+
+  @@unique([projectId, logDate])
+  @@index([projectId])
+  @@map("daily_logs")
+}
+
+model Issue {
+  id                     String        @id @default(cuid())
+  projectId              String
+  orgId                  String
+  title                  String
+  description            String
+  category               String?
+  priority               IssuePriority  @default(MEDIUM)
+  status                 IssueStatus    @default(OPEN)
+  responsiblePartyId     String?
+  dueDate                DateTime?
+  hasProjectImpact       Boolean       @default(false)
+  projectImpactDescription String?
+  hasCostImpact          Boolean       @default(false)
+  costImpactAmount       Decimal?      @db.Decimal(18, 4)
+  hasScheduleImpact      Boolean       @default(false)
+  scheduleImpactDays     Int?
+  resolution             String?
+  resolvedAt             DateTime?
+  linkedTaskId           String?
+  createdById            String
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  project          Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  responsibleParty User?   @relation("ResponsibleIssues", fields: [responsiblePartyId], references: [id], onDelete: SetNull)
+  linkedTask       Task?   @relation("IssueLinkedTask", fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  createdBy        User    @relation("CreatedIssues", fields: [createdById], references: [id])
+
+  @@index([projectId])
+  @@index([orgId])
+  @@index([projectId, status])
+  @@map("issues")
 }

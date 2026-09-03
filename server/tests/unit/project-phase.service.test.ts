@@ -93,6 +93,7 @@ vi.mock("../../src/infrastructure/database/client.js", () => ({
   db: {
     $transaction: vi.fn(),
     organizationMember: { findUnique: vi.fn() },
+    task: { count: vi.fn().mockResolvedValue(0) },
   },
 }));
 
@@ -161,5 +162,22 @@ describe("ProjectService.reorderPhases", () => {
     await service.reorderPhases("org_1", "proj_1", ["phase_2", "phase_1"], "user_1");
 
     expect(phaseRepo.reorder).toHaveBeenCalledWith("proj_1", ["phase_2", "phase_1"]);
+  });
+});
+
+describe("ProjectService.deletePhase", () => {
+  it("rejects deleting a phase that has assigned tasks", async () => {
+    const { db } = await import("../../src/infrastructure/database/client.js");
+    vi.mocked(db.task.count).mockResolvedValueOnce(1);
+    const phaseRepo = makeMockPhaseRepo();
+    const service = new ProjectService(makeMockProjectRepo(), makeMockAuditService(), undefined, undefined, phaseRepo);
+
+    await expect(
+      service.deletePhase("org_1", "proj_1", "phase_1", "user_1"),
+    ).rejects.toThrow("Cannot delete a phase that has assigned tasks");
+    expect(phaseRepo.delete).not.toHaveBeenCalled();
+    expect(db.task.count).toHaveBeenCalledWith({
+      where: { phaseId: "phase_1", orgId: "org_1" },
+    });
   });
 });

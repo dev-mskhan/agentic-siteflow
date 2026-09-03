@@ -322,9 +322,10 @@ export class ProjectService {
       throw new NotFoundError("Phase not found in this project");
     }
 
-    // TODO (Phase 4): Guard against phases with assigned tasks
-    // const taskCount = await db.task.count({ where: { phaseId } });
-    // if (taskCount > 0) throw new ValidationError("Cannot delete phase with assigned tasks");
+    const taskCount = await db.task.count({ where: { phaseId, orgId } });
+    if (taskCount > 0) {
+      throw new ValidationError("Cannot delete a phase that has assigned tasks");
+    }
 
     await this.phaseRepo.delete(phaseId);
 

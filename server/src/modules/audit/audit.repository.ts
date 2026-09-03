@@ -39,10 +39,18 @@ export class AuditRepository {
     });
   }
 
-  async findByEntity(entity: string, entityId: string): Promise<AuditLog[]> {
+  async findByEntity(
+    entity: string,
+    entityId: string,
+    limit = 50,
+    offset = 0,
+    orgId?: string,
+  ): Promise<AuditLog[]> {
     return db.auditLog.findMany({
-      where: { entity, entityId },
+      where: { entity, entityId, ...(orgId ? { orgId } : {}) },
       orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: offset,
     });
   }
 }

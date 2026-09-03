@@ -1,13 +1,13 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg16
     container_name: siteflow-postgres
     environment:
       POSTGRES_DB: siteflow
       POSTGRES_USER: siteflow
       POSTGRES_PASSWORD: siteflow
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
