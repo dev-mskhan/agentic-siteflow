@@ -14,6 +14,14 @@ import { scheduleRouter } from "../../modules/scheduling/schedule.router.js";
 import { milestoneRouter } from "../../modules/scheduling/milestone.router.js";
 import { dailyLogRouter } from "../../modules/field-ops/daily-log.router.js";
 import { issueRouter } from "../../modules/field-ops/issue.router.js";
+import { subcontractorRouter } from "../../modules/subcontractors/subcontractor.router.js";
+import { vendorRouter } from "../../modules/procurement/vendor.router.js";
+import { materialRouter } from "../../modules/procurement/material.router.js";
+import { materialRequestRouter } from "../../modules/procurement/material-request.router.js";
+import { purchaseOrderRouter } from "../../modules/procurement/purchase-order.router.js";
+import { deliveryRouter } from "../../modules/procurement/delivery.router.js";
+import { inventoryRouter } from "../../modules/procurement/inventory.router.js";
+import { committedCostRouter } from "../../modules/procurement/committed-cost.router.js";
 
 /**
  * Root tRPC application router.
@@ -35,6 +43,14 @@ export const appRouter = router({
   milestone: milestoneRouter,
   dailyLog: dailyLogRouter,
   issue: issueRouter,
+  subcontractor: subcontractorRouter,
+  vendor: vendorRouter,
+  material: materialRouter,
+  materialRequest: materialRequestRouter,
+  purchaseOrder: purchaseOrderRouter,
+  delivery: deliveryRouter,
+  inventory: inventoryRouter,
+  committedCost: committedCostRouter,
 });
 
 // Export the inferred type for the client

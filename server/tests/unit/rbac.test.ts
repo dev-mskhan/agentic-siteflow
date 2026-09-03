@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { hasPermission } from "../../src/modules/auth/rbac.js";
+import { hasPermission, hasProjectPermission } from "../../src/modules/auth/rbac.js";
 import { Permissions } from "../../src/modules/auth/permissions.js";
 
 describe("hasPermission — ADMIN role", () => {
@@ -84,3 +84,63 @@ describe("hasPermission — BILLING role", () => {
     expect(hasPermission("BILLING", Permissions.USER_UPDATE_OWN)).toBe(true);
   });
 });
+
+describe("hasPermission — Phase 5 Procurement & Subcontractor Permissions", () => {
+  it("ADMIN has full procurement and subcontractor permissions", () => {
+    expect(hasPermission("ADMIN", Permissions.SUBCONTRACTOR_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.VENDOR_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.MATERIAL_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.MATERIAL_REQUEST_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.MATERIAL_REQUEST_APPROVE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.PURCHASE_ORDER_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.PURCHASE_ORDER_APPROVE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.DELIVERY_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.INVENTORY_TRANSACT)).toBe(true);
+  });
+
+  it("MEMBER has read permissions but cannot mutate", () => {
+    expect(hasPermission("MEMBER", Permissions.SUBCONTRACTOR_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.VENDOR_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.MATERIAL_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.PURCHASE_ORDER_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.DELIVERY_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.INVENTORY_READ)).toBe(true);
+
+    expect(hasPermission("MEMBER", Permissions.SUBCONTRACTOR_CREATE)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.VENDOR_CREATE)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.PURCHASE_ORDER_CREATE)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.INVENTORY_TRANSACT)).toBe(false);
+  });
+});
+
+describe("hasProjectPermission — Phase 5 Project Roles", () => {
+  it("PROJECT_MANAGER has procurement, subcontractor, and inventory permissions", () => {
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.SUBCONTRACTOR_CREATE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.PURCHASE_ORDER_CREATE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.PURCHASE_ORDER_APPROVE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.DELIVERY_UPDATE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.INVENTORY_TRANSACT)).toBe(true);
+  });
+
+  it("PROCUREMENT has PO and vendor mutation permissions but not change order approve", () => {
+    expect(hasProjectPermission("PROCUREMENT", Permissions.PURCHASE_ORDER_CREATE)).toBe(true);
+    expect(hasProjectPermission("PROCUREMENT", Permissions.VENDOR_CREATE)).toBe(true);
+    expect(hasProjectPermission("PROCUREMENT", Permissions.DELIVERY_CREATE)).toBe(true);
+    expect(hasProjectPermission("PROCUREMENT", Permissions.INVENTORY_TRANSACT)).toBe(true);
+    expect(hasProjectPermission("PROCUREMENT", Permissions.CHANGE_ORDER_APPROVE)).toBe(false);
+  });
+
+  it("SITE_SUPERVISOR has delivery and inventory transact but cannot create POs", () => {
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.DELIVERY_UPDATE)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.INVENTORY_TRANSACT)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.PURCHASE_ORDER_CREATE)).toBe(false);
+  });
+
+  it("SUBCONTRACTOR has read permissions for subcontractor, materials, and deliveries", () => {
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.SUBCONTRACTOR_READ)).toBe(true);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.MATERIAL_READ)).toBe(true);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.DELIVERY_READ)).toBe(true);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.PURCHASE_ORDER_CREATE)).toBe(false);
+  });
+});
+

@@ -95,6 +95,75 @@ enum IssuePriority {
   CRITICAL
 }
 
+enum SubcontractorStatus {
+  ACTIVE
+  INACTIVE
+  PROSPECTIVE
+  SUSPENDED
+}
+
+enum SubcontractorContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  PREFERRED
+  SUSPENDED
+}
+
+enum MaterialRequestStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  REJECTED
+  CANCELLED
+}
+
+enum MaterialRequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  SCHEDULED
+  IN_TRANSIT
+  DELIVERED
+  PARTIALLY_RECEIVED
+  REJECTED
+  DELAYED
+}
+
+enum InventoryTransactionType {
+  RECEIPT
+  CONSUMPTION
+  RETURN_TO_VENDOR
+  TRANSFER_OUT
+  TRANSFER_IN
+  ADJUSTMENT
+}
+
+enum PartnerType {
+  SUBCONTRACTOR
+  VENDOR
+}
+
 // ─── Identity Models ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -122,6 +191,15 @@ model Organization {
   taskDependencies  TaskDependency[]
   scheduleBaselines ScheduleBaseline[]
   taskDateChanges   TaskDateChange[]
+  subcontractors    Subcontractor[]
+  subcontractorContracts SubcontractorContract[]
+  vendors           Vendor[]
+  materials         Material[]
+  materialRequests  MaterialRequest[]
+  purchaseOrders    PurchaseOrder[]
+  deliveries        Delivery[]
+  inventoryTransactions InventoryTransaction[]
+  partnerEvaluations    PartnerEvaluation[]
 
   @@map("organizations")
 }
@@ -154,6 +232,16 @@ model User {
   createdDailyLogs        DailyLog[]            @relation("CreatedDailyLogs")
   responsibleIssues       Issue[]              @relation("ResponsibleIssues")
   createdIssues            Issue[]              @relation("CreatedIssues")
+  createdSubcontractors   Subcontractor[]      @relation("CreatedSubcontractors")
+  createdSubcontractorContracts SubcontractorContract[] @relation("CreatedSubcontractorContracts")
+  createdVendors          Vendor[]             @relation("CreatedVendors")
+  requestedMaterialRequests MaterialRequest[]  @relation("RequestedMaterialRequests")
+  approvedMaterialRequests  MaterialRequest[]  @relation("ApprovedMaterialRequests")
+  createdPurchaseOrders     PurchaseOrder[]    @relation("CreatedPurchaseOrders")
+  approvedPurchaseOrders    PurchaseOrder[]    @relation("ApprovedPurchaseOrders")
+  receivedDeliveries        Delivery[]         @relation("ReceivedDeliveries")
+  performedInventoryTransactions InventoryTransaction[] @relation("PerformedInventoryTransactions")
+  performedEvaluations      PartnerEvaluation[] @relation("PerformedPartnerEvaluations")
 
   @@map("users")
 }
@@ -269,6 +357,12 @@ model Project {
   milestones       Milestone[]
   dailyLogs        DailyLog[]
   issues            Issue[]
+  subcontractorContracts SubcontractorContract[]
+  materialRequests       MaterialRequest[]
+  purchaseOrders         PurchaseOrder[]
+  deliveries             Delivery[]
+  inventoryTransactions  InventoryTransaction[]
+  partnerEvaluations     PartnerEvaluation[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -326,6 +420,7 @@ model Task {
   phaseId          String?
   costCodeId       String?
   assigneeId       String?
+  subcontractorId  String?
   name             String
   description      String?
   status           TaskStatus   @default(TODO)
@@ -346,6 +441,7 @@ model Task {
   phase        ProjectPhase?    @relation(fields: [phaseId], references: [id])
   costCode     CostCode?        @relation(fields: [costCodeId], references: [id])
   assignee     User?            @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  subcontractor Subcontractor?  @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   createdBy    User             @relation("CreatedTasks", fields: [createdById], references: [id])
   history      TaskHistory[]
   dateChanges  TaskDateChange[]
@@ -353,11 +449,14 @@ model Task {
   linkedIssues Issue[]     @relation("IssueLinkedTask")
   dependencies TaskDependency[] @relation("TaskPredecessors")
   dependents   TaskDependency[] @relation("TaskSuccessors")
+  linkedMaterialRequestItems  MaterialRequestItem[]
+  linkedPurchaseOrderItems    PurchaseOrderItem[]
 
   @@index([projectId])
   @@index([orgId])
   @@index([projectId, status])
   @@index([phaseId])
+  @@index([subcontractorId])
   @@map("tasks")
 }
 
@@ -487,6 +586,11 @@ model CostCode {
   children     CostCode[]   @relation("CostCodeHierarchy")
   boqItems     BoqItem[]
   tasks        Task[]
+  subcontractorContracts SubcontractorContract[]
+  materials    Material[]
+  linkedMaterialRequestItems MaterialRequestItem[]
+  linkedPurchaseOrderItems   PurchaseOrderItem[]
+  inventoryTransactions      InventoryTransaction[]
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -596,6 +700,8 @@ model BoqItem {
   estimate Estimate      @relation(fields: [estimateId], references: [id], onDelete: Cascade)
   phase    ProjectPhase? @relation(fields: [phaseId], references: [id])
   costCode CostCode?     @relation(fields: [costCodeId], references: [id])
+  linkedMaterialRequestItems MaterialRequestItem[]
+  linkedPurchaseOrderItems   PurchaseOrderItem[]
 
   @@index([estimateId])
   @@index([orgId])
@@ -743,3 +849,390 @@ model Issue {
   @@index([projectId, status])
   @@map("issues")
 }
+
+// ─── Phase 5: Partners & Procurement ──────────────────────────────────────────
+
+model Subcontractor {
+  id                    String              @id @default(cuid())
+  orgId                 String
+  companyName           String
+  trade                 String
+  contactName           String?
+  contactEmail          String?
+  contactPhone          String?
+  address               String?
+  taxId                 String?
+  status                SubcontractorStatus @default(ACTIVE)
+  licenseNumber         String?
+  licenseExpiry         DateTime?
+  insurancePolicyNumber String?
+  insuranceExpiry       DateTime?
+  isCompliant           Boolean             @default(true)
+  rating                Decimal?            @db.Decimal(3, 2)
+  notes                 String?
+  createdById           String
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  organization  Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy     User                    @relation("CreatedSubcontractors", fields: [createdById], references: [id])
+  contracts     SubcontractorContract[]
+  assignedTasks Task[]
+  evaluations   PartnerEvaluation[]
+
+  @@index([orgId])
+  @@index([orgId, status])
+  @@index([orgId, trade])
+  @@map("subcontractors")
+}
+
+model SubcontractorContract {
+  id               String                      @id @default(cuid())
+  orgId            String
+  projectId        String
+  subcontractorId  String
+  contractNumber   String
+  scopeOfWork      String
+  contractValue    Decimal                     @db.Decimal(18, 4)
+  retainagePercent Decimal                     @default(0) @db.Decimal(5, 4)
+  startDate        DateTime?
+  endDate          DateTime?
+  status           SubcontractorContractStatus @default(DRAFT)
+  costCodeId       String?
+  createdById      String
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  organization  Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subcontractor Subcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+  costCode      CostCode?     @relation(fields: [costCodeId], references: [id])
+  createdBy     User          @relation("CreatedSubcontractorContracts", fields: [createdById], references: [id])
+
+  @@unique([orgId, contractNumber])
+  @@index([projectId])
+  @@index([subcontractorId])
+  @@index([orgId])
+  @@map("subcontractor_contracts")
+}
+
+model Vendor {
+  id            String       @id @default(cuid())
+  orgId         String
+  vendorCode    String
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  country       String?
+  taxId         String?
+  paymentTerms  String?
+  currency      String       @default("USD")
+  status        VendorStatus @default(ACTIVE)
+  rating        Decimal?     @db.Decimal(3, 2)
+  notes         String?
+  createdById   String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy     User         @relation("CreatedVendors", fields: [createdById], references: [id])
+  suppliedMaterials Material[] @relation("VendorMaterials")
+  purchaseOrders    PurchaseOrder[]
+  evaluations       PartnerEvaluation[]
+
+  @@unique([orgId, vendorCode])
+  @@index([orgId])
+  @@index([orgId, status])
+  @@map("vendors")
+}
+
+model Material {
+  id                String    @id @default(cuid())
+  orgId             String
+  itemCode          String
+  name              String
+  description       String?
+  category          String
+  unit              String
+  standardCost      Decimal   @default(0) @db.Decimal(18, 4)
+  currency          String    @default("USD")
+  preferredVendorId String?
+  costCodeId        String?
+  minStockLevel     Decimal?  @db.Decimal(18, 4)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  preferredVendor Vendor?      @relation("VendorMaterials", fields: [preferredVendorId], references: [id], onDelete: SetNull)
+  costCode        CostCode?    @relation(fields: [costCodeId], references: [id], onDelete: SetNull)
+  requestItems          MaterialRequestItem[]
+  poItems               PurchaseOrderItem[]
+  inventoryTransactions InventoryTransaction[]
+
+  @@unique([orgId, itemCode])
+  @@index([orgId])
+  @@index([orgId, category])
+  @@index([orgId, isActive])
+  @@map("materials")
+}
+
+// ─── Procurement: Material Requests ───────────────────────────────────────────
+
+model MaterialRequest {
+  id               String                 @id @default(cuid())
+  orgId            String
+  projectId        String
+  requestNumber    String
+  title            String
+  status           MaterialRequestStatus  @default(DRAFT)
+  priority         MaterialRequestPriority @default(MEDIUM)
+  neededByDate     DateTime
+  deliveryLocation String?
+  notes            String?
+  requestedById    String
+  approvedById     String?
+  approvedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy    User         @relation("RequestedMaterialRequests", fields: [requestedById], references: [id])
+  approvedBy     User?        @relation("ApprovedMaterialRequests", fields: [approvedById], references: [id])
+  items          MaterialRequestItem[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([orgId, requestNumber])
+  @@index([projectId])
+  @@index([orgId, status])
+  @@index([neededByDate])
+  @@map("material_requests")
+}
+
+model MaterialRequestItem {
+  id                String   @id @default(cuid())
+  requestId         String
+  materialId        String?
+  description       String
+  quantity          Decimal  @db.Decimal(18, 4)
+  unit              String
+  estimatedUnitCost Decimal? @db.Decimal(18, 4)
+  fulfilledQuantity Decimal  @default(0) @db.Decimal(18, 4)
+  costCodeId        String?
+  linkedTaskId      String?
+  linkedBoqItemId   String?
+  createdAt         DateTime @default(now())
+
+  request       MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  material      Material?       @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  costCode      CostCode?       @relation(fields: [costCodeId], references: [id], onDelete: SetNull)
+  linkedTask    Task?           @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  linkedBoqItem BoqItem?        @relation(fields: [linkedBoqItemId], references: [id], onDelete: SetNull)
+
+  @@index([requestId])
+  @@index([materialId])
+  @@index([linkedTaskId])
+  @@index([costCodeId])
+  @@map("material_request_items")
+}
+
+// ─── Procurement: Purchase Orders ─────────────────────────────────────────────
+
+model PurchaseOrder {
+  id                  String              @id @default(cuid())
+  orgId               String
+  projectId           String
+  vendorId            String
+  poNumber            String
+  status              PurchaseOrderStatus @default(DRAFT)
+  issueDate           DateTime?
+  expectedDeliveryDate DateTime?
+  currency            String              @default("USD")
+  subtotal            Decimal             @default(0) @db.Decimal(18, 4)
+  taxRate             Decimal             @default(0) @db.Decimal(5, 4)
+  taxAmount           Decimal             @default(0) @db.Decimal(18, 4)
+  shippingAmount      Decimal             @default(0) @db.Decimal(18, 4)
+  totalAmount         Decimal             @default(0) @db.Decimal(18, 4)
+  paymentTerms        String?
+  shippingAddress     String?
+  notes               String?
+  materialRequestId   String?
+  createdById         String
+  approvedById        String?
+  approvedAt          DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  organization    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  materialRequest MaterialRequest? @relation(fields: [materialRequestId], references: [id], onDelete: SetNull)
+  createdBy       User             @relation("CreatedPurchaseOrders", fields: [createdById], references: [id])
+  approvedBy      User?            @relation("ApprovedPurchaseOrders", fields: [approvedById], references: [id])
+  items           PurchaseOrderItem[]
+  deliveries      Delivery[]
+
+  @@unique([orgId, poNumber])
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([orgId, status])
+  @@index([expectedDeliveryDate])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String   @id @default(cuid())
+  purchaseOrderId  String
+  materialId       String?
+  description      String
+  quantity         Decimal  @db.Decimal(18, 4)
+  unit             String
+  unitPrice        Decimal  @db.Decimal(18, 4)
+  totalPrice       Decimal  @db.Decimal(18, 4)
+  receivedQuantity Decimal  @default(0) @db.Decimal(18, 4)
+  costCodeId       String?
+  linkedTaskId     String?
+  linkedBoqItemId  String?
+  createdAt        DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  material      Material?     @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  costCode      CostCode?     @relation(fields: [costCodeId], references: [id], onDelete: SetNull)
+  linkedTask    Task?         @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  linkedBoqItem BoqItem?      @relation(fields: [linkedBoqItemId], references: [id], onDelete: SetNull)
+  deliveryItems DeliveryReceiptItem[]
+
+  @@index([purchaseOrderId])
+  @@index([costCodeId])
+  @@index([linkedTaskId])
+  @@map("purchase_order_items")
+}
+
+// ─── Procurement: Deliveries and Receipts ─────────────────────────────────────
+
+model Delivery {
+  id                 String         @id @default(cuid())
+  orgId              String
+  projectId          String
+  purchaseOrderId    String
+  deliveryNumber     String
+  deliveryNoteNumber String?
+  carrier            String?
+  trackingNumber     String?
+  status             DeliveryStatus @default(SCHEDULED)
+  expectedDate       DateTime
+  actualDate         DateTime?
+  isDelayed          Boolean        @default(false)
+  delayedDays        Int            @default(0)
+  delayReason        String?
+  receivedById       String?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  organization  Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  receivedBy    User?                 @relation("ReceivedDeliveries", fields: [receivedById], references: [id])
+  receiptItems  DeliveryReceiptItem[]
+
+  @@unique([orgId, deliveryNumber])
+  @@index([purchaseOrderId])
+  @@index([projectId])
+  @@index([orgId, status])
+  @@index([expectedDate])
+  @@map("deliveries")
+}
+
+model DeliveryReceiptItem {
+  id               String   @id @default(cuid())
+  deliveryId       String
+  poItemId         String
+  quantityShipped  Decimal  @db.Decimal(18, 4)
+  quantityReceived Decimal  @default(0) @db.Decimal(18, 4)
+  quantityAccepted Decimal  @default(0) @db.Decimal(18, 4)
+  quantityRejected Decimal  @default(0) @db.Decimal(18, 4)
+  rejectionReason  String?
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  delivery Delivery          @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  poItem   PurchaseOrderItem @relation(fields: [poItemId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@index([poItemId])
+  @@map("delivery_receipt_items")
+}
+
+// ─── Procurement: Inventory Transactions ──────────────────────────────────────
+
+model InventoryTransaction {
+  id            String                   @id @default(cuid())
+  orgId         String
+  projectId     String
+  materialId    String
+  type          InventoryTransactionType
+  quantity      Decimal                  @db.Decimal(18, 4)
+  unit          String
+  unitCost      Decimal?                 @db.Decimal(18, 4)
+  totalCost     Decimal?                 @db.Decimal(18, 4)
+  referenceType String?
+  referenceId   String?
+  costCodeId    String?
+  notes         String?
+  performedById String
+  createdAt     DateTime                 @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material     Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  costCode     CostCode?    @relation(fields: [costCodeId], references: [id], onDelete: SetNull)
+  performedBy  User         @relation("PerformedInventoryTransactions", fields: [performedById], references: [id])
+
+  @@index([projectId, materialId])
+  @@index([orgId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("inventory_transactions")
+}
+
+// ─── Subcontractors & Vendors: Partner Performance Evaluations ───────────────
+
+model PartnerEvaluation {
+  id                  String      @id @default(cuid())
+  orgId               String
+  partnerType         PartnerType
+  subcontractorId     String?
+  vendorId            String?
+  projectId           String?
+  evaluationDate      DateTime    @default(now())
+  qualityRating       Int
+  timelinessRating    Int
+  communicationRating Int
+  safetyRating        Int?
+  overallRating       Decimal     @db.Decimal(3, 2)
+  comments            String?
+  evaluatorId         String
+  createdAt           DateTime    @default(now())
+
+  organization  Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  subcontractor Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+  vendor        Vendor?        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evaluator     User           @relation("PerformedPartnerEvaluations", fields: [evaluatorId], references: [id])
+
+  @@index([orgId, partnerType])
+  @@index([subcontractorId])
+  @@index([vendorId])
+  @@index([projectId])
+  @@map("partner_evaluations")
+}
+
+
+
+

@@ -26,6 +26,7 @@ export interface CreateTaskInput {
   phaseId?: string;
   costCodeId?: string;
   assigneeId?: string;
+  subcontractorId?: string | null;
   name: string;
   description?: string;
   status?: TaskStatus;
@@ -44,6 +45,7 @@ export interface UpdateTaskInput {
   phaseId?: string | null;
   costCodeId?: string | null;
   assigneeId?: string | null;
+  subcontractorId?: string | null;
   name?: string;
   description?: string | null;
   status?: TaskStatus;
