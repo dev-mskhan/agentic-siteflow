@@ -71,6 +71,41 @@ export const Permissions = {
   DELIVERY_UPDATE: "delivery:update",
   INVENTORY_READ: "inventory:read",
   INVENTORY_TRANSACT: "inventory:transact",
+
+  // Phase 6: Documents & Links
+  DOCUMENT_CREATE: "document:create",
+  DOCUMENT_UPDATE: "document:update",
+  DOCUMENT_DELETE: "document:delete",
+  DOCUMENT_LINK: "document:link",
+
+  // Phase 6: RFIs
+  RFI_CREATE: "rfi:create",
+  RFI_READ: "rfi:read",
+  RFI_UPDATE: "rfi:update",
+  RFI_ANSWER: "rfi:answer",
+  RFI_CLOSE: "rfi:close",
+
+  // Phase 6: Submittals
+  SUBMITTAL_CREATE: "submittal:create",
+  SUBMITTAL_READ: "submittal:read",
+  SUBMITTAL_REVIEW: "submittal:review",
+  SUBMITTAL_APPROVE: "submittal:approve",
+
+  // Phase 6: Quality Control
+  INSPECTION_SCHEDULE: "inspection:schedule",
+  INSPECTION_READ: "inspection:read",
+  INSPECTION_RECORD: "inspection:record",
+  DEFICIENCY_RESOLVE: "deficiency:resolve",
+
+  // Phase 6: Safety Operations
+  SAFETY_REPORT: "safety:report",
+  SAFETY_READ: "safety:read",
+  SAFETY_INVESTIGATE: "safety:investigate",
+
+  // Phase 6: Compliance
+  COMPLIANCE_CREATE: "compliance:create",
+  COMPLIANCE_READ: "compliance:read",
+  COMPLIANCE_UPDATE: "compliance:update",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];

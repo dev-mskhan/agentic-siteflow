@@ -22,6 +22,12 @@ import { purchaseOrderRouter } from "../../modules/procurement/purchase-order.ro
 import { deliveryRouter } from "../../modules/procurement/delivery.router.js";
 import { inventoryRouter } from "../../modules/procurement/inventory.router.js";
 import { committedCostRouter } from "../../modules/procurement/committed-cost.router.js";
+import { documentRouter } from "../../modules/documents/document.router.js";
+import { rfiRouter } from "../../modules/project-communications/rfi.router.js";
+import { submittalRouter } from "../../modules/project-communications/submittal.router.js";
+import { qualityRouter } from "../../modules/quality-safety/quality.router.js";
+import { safetyRouter } from "../../modules/quality-safety/safety.router.js";
+import { complianceRouter } from "../../modules/compliance/compliance.router.js";
 
 /**
  * Root tRPC application router.
@@ -51,6 +57,12 @@ export const appRouter = router({
   delivery: deliveryRouter,
   inventory: inventoryRouter,
   committedCost: committedCostRouter,
+  document: documentRouter,
+  rfi: rfiRouter,
+  submittal: submittalRouter,
+  quality: qualityRouter,
+  safety: safetyRouter,
+  compliance: complianceRouter,
 });
 
 // Export the inferred type for the client

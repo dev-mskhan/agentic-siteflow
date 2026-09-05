@@ -164,6 +164,143 @@ enum PartnerType {
   VENDOR
 }
 
+enum DocumentCategory {
+  DRAWING
+  SPECIFICATION
+  CONTRACT
+  PERMIT
+  SUBMITTAL
+  RFI
+  INSPECTION
+  SAFETY
+  PHOTO
+  REPORT
+  OTHER
+}
+
+enum DocumentStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum RfiStatus {
+  DRAFT
+  OPEN
+  UNDER_REVIEW
+  ANSWERED
+  CLOSED
+  REJECTED
+}
+
+enum RfiPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RfiDiscipline {
+  ARCHITECTURAL
+  STRUCTURAL
+  MEP
+  CIVIL
+  ELECTRICAL
+  PLUMBING
+  HVAC
+  GENERAL
+}
+
+enum SubmittalType {
+  PRODUCT_DATA
+  SHOP_DRAWING
+  SAMPLE
+  CERTIFICATE
+  TEST_REPORT
+  MOCKUP
+  OTHER
+}
+
+enum SubmittalStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  APPROVED_AS_NOTED
+  REVISE_AND_RESUBMIT
+  REJECTED
+  CLOSED
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  PASSED
+  PASSED_WITH_CONDITIONS
+  FAILED
+  CANCELLED
+}
+
+enum DeficiencySeverity {
+  MINOR
+  MODERATE
+  MAJOR
+  CRITICAL
+}
+
+enum DeficiencyStatus {
+  OPEN
+  CORRECTIVE_ACTION_PENDING
+  INSPECTION_PENDING
+  RESOLVED
+  WAIVED
+}
+
+enum SafetyIncidentType {
+  NEAR_MISS
+  FIRST_AID
+  MEDICAL_TREATMENT
+  LOST_TIME
+  PROPERTY_DAMAGE
+  ENVIRONMENTAL
+  FATALITY
+}
+
+enum SafetyIncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SafetyIncidentStatus {
+  REPORTED
+  UNDER_INVESTIGATION
+  CORRECTIVE_ACTION_PENDING
+  CLOSED
+}
+
+enum ComplianceType {
+  BUILDING_PERMIT
+  ENVIRONMENTAL_PERMIT
+  TRADE_LICENSE
+  INSURANCE_CERTIFICATE
+  SAFETY_CERTIFICATION
+  SPECIAL_INSPECTION
+  OTHER
+}
+
+enum ComplianceStatus {
+  PENDING
+  APPROVED
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
 // ─── Identity Models ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -200,6 +337,18 @@ model Organization {
   deliveries        Delivery[]
   inventoryTransactions InventoryTransaction[]
   partnerEvaluations    PartnerEvaluation[]
+  documents             Document[]
+  documentVersions      DocumentVersion[]
+  documentLinks         DocumentLink[]
+  rfis                  Rfi[]
+  rfiResponses          RfiResponse[]
+  submittals            Submittal[]
+  submittalReviews      SubmittalReview[]
+  qualityInspections    QualityInspection[]
+  deficiencies          Deficiency[]
+  safetyIncidents       SafetyIncident[]
+  safetyCorrectiveActions SafetyCorrectiveAction[]
+  complianceRecords     ComplianceRecord[]
 
   @@map("organizations")
 }
@@ -242,6 +391,26 @@ model User {
   receivedDeliveries        Delivery[]         @relation("ReceivedDeliveries")
   performedInventoryTransactions InventoryTransaction[] @relation("PerformedInventoryTransactions")
   performedEvaluations      PartnerEvaluation[] @relation("PerformedPartnerEvaluations")
+  createdDocuments          Document[]          @relation("CreatedDocuments")
+  uploadedDocumentVersions  DocumentVersion[]   @relation("UploadedDocumentVersions")
+  createdDocumentLinks      DocumentLink[]      @relation("CreatedDocumentLinks")
+  requestedRfis             Rfi[]               @relation("RequestedRfis")
+  assignedRfis              Rfi[]               @relation("AssignedRfis")
+  answeredRfis              Rfi[]               @relation("AnsweredRfis")
+  closedRfis                Rfi[]               @relation("ClosedRfis")
+  respondedRfiResponses     RfiResponse[]       @relation("RespondedRfiResponses")
+  submittedSubmittals       Submittal[]         @relation("SubmittedSubmittals")
+  reviewedSubmittals        Submittal[]         @relation("LeadReviewedSubmittals")
+  submittalReviews          SubmittalReview[]   @relation("PerformedSubmittalReviews")
+  inspectedQualityInspections QualityInspection[] @relation("InspectorQualityInspections")
+  assignedDeficiencies      Deficiency[]        @relation("AssignedDeficiencies")
+  resolvedDeficiencies      Deficiency[]        @relation("ResolvedDeficiencies")
+  createdDeficiencies       Deficiency[]        @relation("CreatedDeficiencies")
+  reportedSafetyIncidents   SafetyIncident[]    @relation("ReportedSafetyIncidents")
+  investigatedSafetyIncidents SafetyIncident[]  @relation("InvestigatedSafetyIncidents")
+  assignedSafetyCorrectiveActions SafetyCorrectiveAction[] @relation("AssignedSafetyCorrectiveActions")
+  responsibleComplianceRecords ComplianceRecord[] @relation("ResponsibleComplianceRecords")
+  createdComplianceRecords  ComplianceRecord[]  @relation("CreatedComplianceRecords")
 
   @@map("users")
 }
@@ -363,6 +532,13 @@ model Project {
   deliveries             Delivery[]
   inventoryTransactions  InventoryTransaction[]
   partnerEvaluations     PartnerEvaluation[]
+  documents              Document[]
+  rfis                   Rfi[]
+  submittals             Submittal[]
+  qualityInspections     QualityInspection[]
+  deficiencies           Deficiency[]
+  safetyIncidents        SafetyIncident[]
+  complianceRecords      ComplianceRecord[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -451,6 +627,9 @@ model Task {
   dependents   TaskDependency[] @relation("TaskSuccessors")
   linkedMaterialRequestItems  MaterialRequestItem[]
   linkedPurchaseOrderItems    PurchaseOrderItem[]
+  linkedRfis                  Rfi[]
+  linkedSubmittals            Submittal[]
+  qualityInspections          QualityInspection[]
 
   @@index([projectId])
   @@index([orgId])
@@ -879,6 +1058,10 @@ model Subcontractor {
   contracts     SubcontractorContract[]
   assignedTasks Task[]
   evaluations   PartnerEvaluation[]
+  submittals    Submittal[]
+  deficiencies  Deficiency[]
+  safetyIncidents SafetyIncident[]
+  complianceRecords ComplianceRecord[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -1232,6 +1415,361 @@ model PartnerEvaluation {
   @@index([projectId])
   @@map("partner_evaluations")
 }
+
+// ─── Phase 6: Documents & Media Storage ───────────────────────────────────────
+
+model Document {
+  id             String           @id @default(cuid())
+  orgId          String
+  projectId      String?
+  title          String
+  documentNumber String?
+  category       DocumentCategory @default(OTHER)
+  status         DocumentStatus   @default(DRAFT)
+  description    String?
+  currentVersion Int              @default(1)
+  tags           String[]         @default([])
+  isConfidential Boolean          @default(false)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project        Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy      User              @relation("CreatedDocuments", fields: [createdById], references: [id])
+  versions       DocumentVersion[]
+  links          DocumentLink[]
+
+  @@index([orgId, category])
+  @@index([projectId])
+  @@index([documentNumber])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id            String   @id @default(cuid())
+  documentId    String
+  orgId         String
+  versionNumber Int
+  fileName      String
+  fileSize      Int
+  mimeType      String
+  storageKey    String
+  storageBucket String   @default("default")
+  checksum      String?
+  changeNotes   String?
+  uploadedById  String
+  createdAt     DateTime @default(now())
+
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploadedBy    User     @relation("UploadedDocumentVersions", fields: [uploadedById], references: [id])
+
+  @@unique([documentId, versionNumber])
+  @@index([orgId])
+  @@map("document_versions")
+}
+
+model DocumentLink {
+  id          String   @id @default(cuid())
+  documentId  String
+  orgId       String
+  entityType  String
+  entityId    String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("CreatedDocumentLinks", fields: [createdById], references: [id])
+
+  @@unique([documentId, entityType, entityId])
+  @@index([orgId, entityType, entityId])
+  @@map("document_links")
+}
+
+// ─── Phase 6: Requests for Information (RFIs) ─────────────────────────────────
+
+model Rfi {
+  id                 String         @id @default(cuid())
+  orgId              String
+  projectId          String
+  rfiNumber          String
+  title              String
+  question           String
+  suggestedSolution  String?
+  discipline         RfiDiscipline  @default(GENERAL)
+  priority           RfiPriority    @default(MEDIUM)
+  status             RfiStatus      @default(OPEN)
+  dueDate            DateTime?
+  scheduleImpactDays Int?
+  costImpactAmount   Decimal?       @db.Decimal(18, 4)
+  linkedTaskId       String?
+  assignedToId       String?
+  requestedById      String
+  answeredById       String?
+  answeredAt         DateTime?
+  closedById         String?
+  closedAt           DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask   Task?         @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  requestedBy  User          @relation("RequestedRfis", fields: [requestedById], references: [id])
+  assignedTo   User?         @relation("AssignedRfis", fields: [assignedToId], references: [id])
+  answeredBy   User?         @relation("AnsweredRfis", fields: [answeredById], references: [id])
+  closedBy     User?         @relation("ClosedRfis", fields: [closedById], references: [id])
+  responses    RfiResponse[]
+
+  @@unique([projectId, rfiNumber])
+  @@index([orgId, status])
+  @@index([projectId, status])
+  @@index([dueDate])
+  @@map("rfis")
+}
+
+model RfiResponse {
+  id               String   @id @default(cuid())
+  rfiId            String
+  orgId            String
+  responseContent  String
+  isOfficialAnswer Boolean  @default(false)
+  respondedById    String
+  createdAt        DateTime @default(now())
+
+  rfi          Rfi          @relation(fields: [rfiId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  respondedBy  User         @relation("RespondedRfiResponses", fields: [respondedById], references: [id])
+
+  @@index([rfiId])
+  @@index([orgId])
+  @@map("rfi_responses")
+}
+
+// ─── Phase 6: Submittals & Shop Drawing Reviews ───────────────────────────────
+
+model Submittal {
+  id                 String          @id @default(cuid())
+  orgId              String
+  projectId          String
+  submittalNumber    String
+  revision           Int             @default(0)
+  title              String
+  description        String?
+  specSection        String?
+  type               SubmittalType   @default(PRODUCT_DATA)
+  status             SubmittalStatus @default(SUBMITTED)
+  subcontractorId    String?
+  submittedById      String
+  leadReviewerId     String?
+  dueDate            DateTime?
+  requiredOnSiteDate DateTime?
+  linkedTaskId       String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  organization  Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subcontractor Subcontractor?    @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  submittedBy   User              @relation("SubmittedSubmittals", fields: [submittedById], references: [id])
+  leadReviewer  User?             @relation("LeadReviewedSubmittals", fields: [leadReviewerId], references: [id])
+  linkedTask    Task?             @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  reviews       SubmittalReview[]
+
+  @@unique([projectId, submittalNumber, revision])
+  @@index([orgId, status])
+  @@index([projectId, status])
+  @@index([specSection])
+  @@map("submittals")
+}
+
+model SubmittalReview {
+  id          String          @id @default(cuid())
+  submittalId String
+  orgId       String
+  reviewerId  String
+  status      SubmittalStatus
+  comments    String?
+  reviewedAt  DateTime        @default(now())
+
+  submittal    Submittal    @relation(fields: [submittalId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  reviewer     User         @relation("PerformedSubmittalReviews", fields: [reviewerId], references: [id])
+
+  @@index([submittalId])
+  @@index([orgId])
+  @@map("submittal_reviews")
+}
+
+// ─── Quality Control Models ──────────────────────────────────────────────────
+
+model QualityInspection {
+  id               String           @id @default(cuid())
+  orgId            String
+  projectId        String
+  inspectionNumber String
+  title            String
+  description      String?
+  location         String?
+  status           InspectionStatus @default(SCHEDULED)
+  scheduledDate    DateTime
+  completedDate    DateTime?
+  inspectorId      String
+  linkedTaskId     String?
+  checklistItems   Json             @default("[]")
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inspector    User         @relation("InspectorQualityInspections", fields: [inspectorId], references: [id])
+  linkedTask   Task?        @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  deficiencies Deficiency[]
+
+  @@unique([projectId, inspectionNumber])
+  @@index([orgId, status])
+  @@index([projectId, status])
+  @@index([scheduledDate])
+  @@map("quality_inspections")
+}
+
+model Deficiency {
+  id               String             @id @default(cuid())
+  orgId            String
+  projectId        String
+  inspectionId     String?
+  deficiencyNumber String
+  title            String
+  description      String
+  location         String?
+  severity         DeficiencySeverity @default(MODERATE)
+  status           DeficiencyStatus   @default(OPEN)
+  subcontractorId  String?
+  assignedToId     String?
+  dueDate          DateTime?
+  correctiveAction String?
+  resolvedAt       DateTime?
+  resolvedById     String?
+  createdById      String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  organization  Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inspection    QualityInspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  subcontractor Subcontractor?     @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  assignedTo    User?              @relation("AssignedDeficiencies", fields: [assignedToId], references: [id])
+  resolvedBy    User?              @relation("ResolvedDeficiencies", fields: [resolvedById], references: [id])
+  createdBy     User               @relation("CreatedDeficiencies", fields: [createdById], references: [id])
+
+  @@unique([projectId, deficiencyNumber])
+  @@index([orgId, status])
+  @@index([projectId, status])
+  @@index([subcontractorId])
+  @@map("deficiencies")
+}
+
+// ─── Safety Models ───────────────────────────────────────────────────────────
+
+model SafetyIncident {
+  id                   String                 @id @default(cuid())
+  orgId                String
+  projectId            String
+  incidentNumber       String
+  incidentDate         DateTime
+  incidentType         SafetyIncidentType
+  severity             SafetyIncidentSeverity @default(MEDIUM)
+  status               SafetyIncidentStatus   @default(REPORTED)
+  title                String
+  description          String
+  location             String?
+  isOshaRecordable     Boolean                @default(false)
+  oshaForm300Category  String?
+  lostWorkDays         Int                    @default(0)
+  restrictedWorkDays   Int                    @default(0)
+  affectedPersonName   String?
+  affectedPersonType   String?
+  subcontractorId      String?
+  investigationSummary String?
+  rootCause            String?
+  reportedById         String
+  investigatedById     String?
+  closedAt             DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  organization      Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project           Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subcontractor     Subcontractor?           @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  reportedBy        User                     @relation("ReportedSafetyIncidents", fields: [reportedById], references: [id])
+  investigatedBy    User?                    @relation("InvestigatedSafetyIncidents", fields: [investigatedById], references: [id])
+  correctiveActions SafetyCorrectiveAction[]
+
+  @@unique([projectId, incidentNumber])
+  @@index([orgId, incidentType])
+  @@index([projectId, status])
+  @@index([incidentDate])
+  @@map("safety_incidents")
+}
+
+model SafetyCorrectiveAction {
+  id                String         @id @default(cuid())
+  incidentId        String
+  orgId             String
+  actionDescription String
+  assignedToId      String
+  dueDate           DateTime
+  completedDate     DateTime?
+  isCompleted       Boolean        @default(false)
+  verificationNotes String?
+  createdAt         DateTime       @default(now())
+
+  incident     SafetyIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assignedTo   User           @relation("AssignedSafetyCorrectiveActions", fields: [assignedToId], references: [id])
+
+  @@index([incidentId])
+  @@index([orgId, isCompleted])
+  @@map("safety_corrective_actions")
+}
+
+// ─── Compliance Models ───────────────────────────────────────────────────────
+
+model ComplianceRecord {
+  id                String           @id @default(cuid())
+  orgId             String
+  projectId         String?
+  subcontractorId   String?
+  complianceType    ComplianceType
+  title             String
+  referenceNumber   String?
+  issuingAuthority  String?
+  status            ComplianceStatus @default(ACTIVE)
+  issueDate         DateTime?
+  expirationDate    DateTime?
+  reminderDays      Int              @default(30)
+  responsibleUserId String?
+  notes             String?
+  createdById       String
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  organization    Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project         Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subcontractor   Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  responsibleUser User?          @relation("ResponsibleComplianceRecords", fields: [responsibleUserId], references: [id])
+  createdBy       User           @relation("CreatedComplianceRecords", fields: [createdById], references: [id])
+
+  @@index([orgId, complianceType])
+  @@index([projectId])
+  @@index([subcontractorId])
+  @@index([expirationDate])
+  @@map("compliance_records")
+}
+
 
 
 

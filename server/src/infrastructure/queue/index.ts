@@ -1,12 +1,37 @@
-import { Queue, Worker, type Processor } from "bullmq";
-import { redis } from "../redis/client.js";
+import { Queue, Worker, type Processor, type ConnectionOptions } from "bullmq";
+import { env } from "../../config/index.js";
 
 /**
- * BullMQ connection options derived from the shared ioredis singleton.
+ * BullMQ connection options object.
  *
- * BullMQ accepts an ioredis instance directly via the `connection` option.
+ * BullMQ workers and queues receive connection config options ({ host, port, password, ... })
+ * rather than passing the whole instantiated ioredis client singleton.
  */
-const connection = redis;
+function parseRedisConnection(): ConnectionOptions {
+  try {
+    const url = new URL(env.REDIS_URL);
+    const options: ConnectionOptions = {
+      host: url.hostname || "localhost",
+      port: url.port ? parseInt(url.port, 10) : 6379,
+      maxRetriesPerRequest: null,
+    };
+    if (url.password) {
+      options.password = decodeURIComponent(url.password);
+    }
+    if (url.username) {
+      options.username = decodeURIComponent(url.username);
+    }
+    return options;
+  } catch {
+    return {
+      host: "localhost",
+      port: 6379,
+      maxRetriesPerRequest: null,
+    };
+  }
+}
+
+const connection: ConnectionOptions = parseRedisConnection();
 
 /**
  * Factory that creates a named BullMQ Queue connected to the shared Redis

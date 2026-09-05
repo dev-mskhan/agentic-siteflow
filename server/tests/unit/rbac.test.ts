@@ -144,3 +144,99 @@ describe("hasProjectPermission — Phase 5 Project Roles", () => {
   });
 });
 
+describe("hasPermission — Phase 6 Org Roles", () => {
+  it("ADMIN has all Phase 6 permissions", () => {
+    expect(hasPermission("ADMIN", Permissions.DOCUMENT_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.DOCUMENT_READ)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.DOCUMENT_UPDATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.DOCUMENT_DELETE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.DOCUMENT_LINK)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.RFI_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.RFI_READ)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.RFI_UPDATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.RFI_ANSWER)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.RFI_CLOSE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.SUBMITTAL_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.SUBMITTAL_READ)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.SUBMITTAL_REVIEW)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.SUBMITTAL_APPROVE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.INSPECTION_SCHEDULE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.INSPECTION_READ)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.INSPECTION_RECORD)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.DEFICIENCY_RESOLVE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.SAFETY_REPORT)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.SAFETY_READ)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.SAFETY_INVESTIGATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.COMPLIANCE_CREATE)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.COMPLIANCE_READ)).toBe(true);
+    expect(hasPermission("ADMIN", Permissions.COMPLIANCE_UPDATE)).toBe(true);
+  });
+
+  it("MEMBER has read-only permissions for Phase 6 modules", () => {
+    expect(hasPermission("MEMBER", Permissions.DOCUMENT_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.RFI_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.SUBMITTAL_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.INSPECTION_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.SAFETY_READ)).toBe(true);
+    expect(hasPermission("MEMBER", Permissions.COMPLIANCE_READ)).toBe(true);
+
+    expect(hasPermission("MEMBER", Permissions.DOCUMENT_CREATE)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.RFI_CREATE)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.SUBMITTAL_CREATE)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.INSPECTION_RECORD)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.SAFETY_REPORT)).toBe(false);
+    expect(hasPermission("MEMBER", Permissions.COMPLIANCE_CREATE)).toBe(false);
+  });
+});
+
+describe("hasProjectPermission — Phase 6 Project Roles", () => {
+  it("PROJECT_MANAGER has full Phase 6 project permissions", () => {
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.DOCUMENT_CREATE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.RFI_ANSWER)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.RFI_CLOSE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.SUBMITTAL_APPROVE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.INSPECTION_RECORD)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.DEFICIENCY_RESOLVE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.SAFETY_INVESTIGATE)).toBe(true);
+    expect(hasProjectPermission("PROJECT_MANAGER", Permissions.COMPLIANCE_UPDATE)).toBe(true);
+  });
+
+  it("SITE_SUPERVISOR has inspection recording, safety reporting, document upload, and RFI create", () => {
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.DOCUMENT_CREATE)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.DOCUMENT_LINK)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.RFI_CREATE)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.RFI_READ)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.INSPECTION_SCHEDULE)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.INSPECTION_RECORD)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.DEFICIENCY_RESOLVE)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.SAFETY_REPORT)).toBe(true);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.SAFETY_READ)).toBe(true);
+
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.RFI_CLOSE)).toBe(false);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.SUBMITTAL_APPROVE)).toBe(false);
+    expect(hasProjectPermission("SITE_SUPERVISOR", Permissions.SAFETY_INVESTIGATE)).toBe(false);
+  });
+
+  it("SUBCONTRACTOR has submittal submission, RFI read, and deficiency resolve", () => {
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.SUBMITTAL_CREATE)).toBe(true);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.SUBMITTAL_READ)).toBe(true);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.RFI_READ)).toBe(true);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.DEFICIENCY_RESOLVE)).toBe(true);
+
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.RFI_CREATE)).toBe(false);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.SUBMITTAL_APPROVE)).toBe(false);
+    expect(hasProjectPermission("SUBCONTRACTOR", Permissions.SAFETY_INVESTIGATE)).toBe(false);
+  });
+
+  it("CLIENT has read-only access to documents, inspections, and RFIs", () => {
+    expect(hasProjectPermission("CLIENT", Permissions.DOCUMENT_READ)).toBe(true);
+    expect(hasProjectPermission("CLIENT", Permissions.INSPECTION_READ)).toBe(true);
+    expect(hasProjectPermission("CLIENT", Permissions.RFI_READ)).toBe(true);
+
+    expect(hasProjectPermission("CLIENT", Permissions.DOCUMENT_CREATE)).toBe(false);
+    expect(hasProjectPermission("CLIENT", Permissions.RFI_CREATE)).toBe(false);
+    expect(hasProjectPermission("CLIENT", Permissions.SUBMITTAL_CREATE)).toBe(false);
+  });
+});
+
+
