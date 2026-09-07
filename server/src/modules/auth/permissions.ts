@@ -106,6 +106,26 @@ export const Permissions = {
   COMPLIANCE_CREATE: "compliance:create",
   COMPLIANCE_READ: "compliance:read",
   COMPLIANCE_UPDATE: "compliance:update",
+
+  // Phase 7: Commercial Control
+  BUDGET_MANAGE: "budget:manage",
+  COST_TRANSACTION_CREATE: "cost_transaction:create",
+  COST_TRANSACTION_READ: "cost_transaction:read",
+  CHANGE_ORDER_CREATE: "change_order:create",
+  CHANGE_ORDER_READ: "change_order:read",
+  // CHANGE_ORDER_APPROVE already defined above
+  SOV_MANAGE: "sov:manage",
+  SOV_READ: "sov:read",
+  PAYMENT_APPLICATION_CREATE: "payment_application:create",
+  PAYMENT_APPLICATION_READ: "payment_application:read",
+  PAYMENT_APPLICATION_APPROVE: "payment_application:approve",
+  INVOICE_CREATE: "invoice:create",
+  INVOICE_READ: "invoice:read",
+  INVOICE_APPROVE: "invoice:approve",
+  PAYMENT_RECORD: "payment:record",
+  PAYMENT_READ: "payment:read",
+  RETAINAGE_RELEASE: "retainage:release",
+  COMMERCIAL_OVERVIEW_READ: "commercial:read",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];

@@ -301,6 +301,99 @@ enum ComplianceStatus {
   REVOKED
 }
 
+// ─── Commercial Enums ─────────────────────────────────────────────────────────
+
+enum CostTransactionType {
+  LABOR
+  MATERIAL
+  EQUIPMENT
+  SUBCONTRACTOR
+  OTHER
+}
+
+enum CostTransactionStatus {
+  POSTED
+  VOID
+}
+
+enum ChangeOrderStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  VOID
+}
+
+enum ChangeOrderType {
+  CLIENT
+  SUBCONTRACTOR
+  INTERNAL
+}
+
+enum SovStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+}
+
+enum SovType {
+  PRIME_CONTRACT
+  SUBCONTRACTOR
+}
+
+enum PaymentApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum PaymentApplicationType {
+  CLIENT
+  SUBCONTRACTOR
+}
+
+enum InvoiceType {
+  ACCOUNTS_PAYABLE
+  ACCOUNTS_RECEIVABLE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PARTIALLY_PAID
+  PAID
+  VOID
+}
+
+enum PaymentMethod {
+  CHECK
+  ACH
+  WIRE
+  CREDIT_CARD
+  CASH
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  VOID
+}
+
+enum RetainageReleaseStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  RELEASED
+  REJECTED
+}
+
 // ─── Identity Models ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -349,6 +442,14 @@ model Organization {
   safetyIncidents       SafetyIncident[]
   safetyCorrectiveActions SafetyCorrectiveAction[]
   complianceRecords     ComplianceRecord[]
+  budgetItems           BudgetItem[]
+  costTransactions      CostTransaction[]
+  changeOrders          ChangeOrder[]
+  scheduleOfValues      ScheduleOfValues[]
+  paymentApplications   PaymentApplication[]
+  invoices              Invoice[]
+  payments              Payment[]
+  retainageReleases     RetainageRelease[]
 
   @@map("organizations")
 }
@@ -411,6 +512,20 @@ model User {
   assignedSafetyCorrectiveActions SafetyCorrectiveAction[] @relation("AssignedSafetyCorrectiveActions")
   responsibleComplianceRecords ComplianceRecord[] @relation("ResponsibleComplianceRecords")
   createdComplianceRecords  ComplianceRecord[]  @relation("CreatedComplianceRecords")
+  createdBudgetItems        BudgetItem[]        @relation("CreatedBudgetItems")
+  createdCostTransactions   CostTransaction[]   @relation("CreatedCostTransactions")
+  voidedCostTransactions    CostTransaction[]   @relation("VoidedCostTransactions")
+  requestedChangeOrders     ChangeOrder[]       @relation("RequestedChangeOrders")
+  approvedChangeOrders      ChangeOrder[]       @relation("ApprovedChangeOrders")
+  createdScheduleOfValues   ScheduleOfValues[]  @relation("CreatedScheduleOfValues")
+  submittedPaymentApplications PaymentApplication[] @relation("SubmittedPaymentApplications")
+  reviewedPaymentApplications  PaymentApplication[] @relation("ReviewedPaymentApplications")
+  approvedPaymentApplications  PaymentApplication[] @relation("ApprovedPaymentApplications")
+  createdInvoices           Invoice[]           @relation("CreatedInvoices")
+  approvedInvoices          Invoice[]           @relation("ApprovedInvoices")
+  recordedPayments          Payment[]           @relation("RecordedPayments")
+  requestedRetainageReleases RetainageRelease[] @relation("RequestedRetainageReleases")
+  approvedRetainageReleases  RetainageRelease[] @relation("ApprovedRetainageReleases")
 
   @@map("users")
 }
@@ -539,6 +654,13 @@ model Project {
   deficiencies           Deficiency[]
   safetyIncidents        SafetyIncident[]
   complianceRecords      ComplianceRecord[]
+  budgetItems            BudgetItem[]
+  costTransactions       CostTransaction[]
+  changeOrders           ChangeOrder[]
+  scheduleOfValues       ScheduleOfValues[]
+  paymentApplications    PaymentApplication[]
+  invoices               Invoice[]
+  retainageReleases      RetainageRelease[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -630,6 +752,7 @@ model Task {
   linkedRfis                  Rfi[]
   linkedSubmittals            Submittal[]
   qualityInspections          QualityInspection[]
+  costTransactions            CostTransaction[]
 
   @@index([projectId])
   @@index([orgId])
@@ -770,6 +893,10 @@ model CostCode {
   linkedMaterialRequestItems MaterialRequestItem[]
   linkedPurchaseOrderItems   PurchaseOrderItem[]
   inventoryTransactions      InventoryTransaction[]
+  budgetItems                BudgetItem[]
+  costTransactions           CostTransaction[]
+  changeOrderItems           ChangeOrderItem[]
+  sovItems                   SovItem[]
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -1062,6 +1189,12 @@ model Subcontractor {
   deficiencies  Deficiency[]
   safetyIncidents SafetyIncident[]
   complianceRecords ComplianceRecord[]
+  costTransactions  CostTransaction[]
+  changeOrders      ChangeOrder[]
+  scheduleOfValues  ScheduleOfValues[]
+  paymentApplications PaymentApplication[]
+  invoices          Invoice[]
+  retainageReleases RetainageRelease[]
 
   @@index([orgId])
   @@index([orgId, status])
@@ -1091,6 +1224,10 @@ model SubcontractorContract {
   subcontractor Subcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
   costCode      CostCode?     @relation(fields: [costCodeId], references: [id])
   createdBy     User          @relation("CreatedSubcontractorContracts", fields: [createdById], references: [id])
+  changeOrders  ChangeOrder[]
+  scheduleOfValues ScheduleOfValues[]
+  paymentApplications PaymentApplication[]
+  retainageReleases RetainageRelease[]
 
   @@unique([orgId, contractNumber])
   @@index([projectId])
@@ -1125,6 +1262,8 @@ model Vendor {
   suppliedMaterials Material[] @relation("VendorMaterials")
   purchaseOrders    PurchaseOrder[]
   evaluations       PartnerEvaluation[]
+  costTransactions  CostTransaction[]
+  invoices          Invoice[]
 
   @@unique([orgId, vendorCode])
   @@index([orgId])
@@ -1259,6 +1398,8 @@ model PurchaseOrder {
   approvedBy      User?            @relation("ApprovedPurchaseOrders", fields: [approvedById], references: [id])
   items           PurchaseOrderItem[]
   deliveries      Delivery[]
+  costTransactions CostTransaction[]
+  invoices        Invoice[]
 
   @@unique([orgId, poNumber])
   @@index([projectId])
@@ -1768,6 +1909,345 @@ model ComplianceRecord {
   @@index([subcontractorId])
   @@index([expirationDate])
   @@map("compliance_records")
+}
+
+// ─── Commercial Models ────────────────────────────────────────────────────────
+
+model BudgetItem {
+  id              String   @id @default(cuid())
+  orgId           String
+  projectId       String
+  costCodeId      String
+  originalAmount  Decimal  @db.Decimal(18, 4)
+  approvedChanges Decimal  @default(0) @db.Decimal(18, 4)
+  revisedAmount   Decimal  @db.Decimal(18, 4)
+  notes           String?
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  costCode     CostCode     @relation(fields: [costCodeId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("CreatedBudgetItems", fields: [createdById], references: [id])
+
+  @@unique([projectId, costCodeId])
+  @@index([orgId, projectId])
+  @@index([costCodeId])
+  @@map("budget_items")
+}
+
+model CostTransaction {
+  id              String                @id @default(cuid())
+  orgId           String
+  projectId       String
+  costCodeId      String
+  transactionType CostTransactionType
+  status          CostTransactionStatus @default(POSTED)
+  amount          Decimal               @db.Decimal(18, 4)
+  currency        String                @default("USD")
+  transactionDate DateTime
+  description     String
+  referenceNumber String?
+  vendorId        String?
+  subcontractorId String?
+  purchaseOrderId String?
+  taskId          String?
+  invoiceId       String?
+  voidReason      String?
+  voidedById      String?
+  createdById     String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  organization  Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  costCode      CostCode              @relation(fields: [costCodeId], references: [id], onDelete: Cascade)
+  vendor        Vendor?               @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  subcontractor Subcontractor?        @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  task          Task?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  invoice       Invoice?              @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdBy     User                  @relation("CreatedCostTransactions", fields: [createdById], references: [id])
+  voidedBy      User?                 @relation("VoidedCostTransactions", fields: [voidedById], references: [id])
+
+  @@index([orgId, transactionDate])
+  @@index([projectId, costCodeId])
+  @@index([transactionType, status])
+  @@map("cost_transactions")
+}
+
+model ChangeOrder {
+  id                    String            @id @default(cuid())
+  orgId                 String
+  projectId             String
+  changeOrderNumber     String
+  title                 String
+  description           String
+  reason                String?
+  type                  ChangeOrderType   @default(CLIENT)
+  status                ChangeOrderStatus @default(DRAFT)
+  costDelta             Decimal           @db.Decimal(18, 4)
+  scheduleDeltaDays     Int               @default(0)
+  subcontractorId       String?
+  contractId            String?
+  requestedById         String
+  approvedById          String?
+  approvedAt            DateTime?
+  clientApprovedAt      DateTime?
+  clientReferenceNumber String?
+  rejectionReason       String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  organization  Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subcontractor Subcontractor?         @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  contract      SubcontractorContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  requestedBy   User                   @relation("RequestedChangeOrders", fields: [requestedById], references: [id])
+  approvedBy    User?                  @relation("ApprovedChangeOrders", fields: [approvedById], references: [id])
+  items         ChangeOrderItem[]
+
+  @@unique([projectId, changeOrderNumber])
+  @@index([orgId, status])
+  @@index([projectId, type])
+  @@map("change_orders")
+}
+
+model ChangeOrderItem {
+  id            String    @id @default(cuid())
+  changeOrderId String
+  orgId         String
+  costCodeId    String?
+  description   String
+  quantity      Decimal   @db.Decimal(18, 4)
+  unitPrice     Decimal   @db.Decimal(18, 4)
+  amount        Decimal   @db.Decimal(18, 4)
+  createdAt     DateTime  @default(now())
+
+  changeOrder ChangeOrder @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+  costCode    CostCode?   @relation(fields: [costCodeId], references: [id], onDelete: SetNull)
+
+  @@index([changeOrderId])
+  @@index([costCodeId])
+  @@map("change_order_items")
+}
+
+model ScheduleOfValues {
+  id                  String             @id @default(cuid())
+  orgId               String
+  projectId           String
+  contractId          String?
+  subcontractorId     String?
+  type                SovType            @default(PRIME_CONTRACT)
+  status              SovStatus          @default(DRAFT)
+  title               String
+  totalScheduledValue Decimal            @db.Decimal(18, 4)
+  createdById         String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  organization        Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project             Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contract            SubcontractorContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  subcontractor       Subcontractor?     @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  createdBy           User               @relation("CreatedScheduleOfValues", fields: [createdById], references: [id])
+  items               SovItem[]
+  paymentApplications PaymentApplication[]
+
+  @@index([orgId, projectId])
+  @@index([contractId])
+  @@map("schedule_of_values")
+}
+
+model SovItem {
+  id             String             @id @default(cuid())
+  sovId          String
+  orgId          String
+  itemNumber     String
+  description    String
+  costCodeId     String?
+  scheduledValue Decimal            @db.Decimal(18, 4)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  scheduleOfValues ScheduleOfValues @relation(fields: [sovId], references: [id], onDelete: Cascade)
+  costCode         CostCode?        @relation(fields: [costCodeId], references: [id], onDelete: SetNull)
+  lineItems        PaymentApplicationLineItem[]
+
+  @@unique([sovId, itemNumber])
+  @@index([costCodeId])
+  @@map("sov_items")
+}
+
+model PaymentApplication {
+  id                      String                   @id @default(cuid())
+  orgId                   String
+  projectId               String
+  sovId                   String
+  applicationNumber       Int
+  periodStart             DateTime
+  periodEnd               DateTime
+  type                    PaymentApplicationType   @default(CLIENT)
+  status                  PaymentApplicationStatus @default(DRAFT)
+  subcontractorId         String?
+  contractId              String?
+  originalContractSum     Decimal                  @db.Decimal(18, 4)
+  netChangeByChangeOrders Decimal                  @default(0) @db.Decimal(18, 4)
+  contractSumToDate       Decimal                  @db.Decimal(18, 4)
+  totalCompletedAndStored Decimal                  @db.Decimal(18, 4)
+  retainagePercent        Decimal                  @db.Decimal(5, 4)
+  retainageAmount         Decimal                  @db.Decimal(18, 4)
+  totalEarnedLessRetainage Decimal                 @db.Decimal(18, 4)
+  lessPreviousCertificates Decimal                 @db.Decimal(18, 4)
+  currentPaymentDue       Decimal                  @db.Decimal(18, 4)
+  balanceToFinish         Decimal                  @db.Decimal(18, 4)
+  submittedById           String
+  submittedAt             DateTime?
+  reviewedById            String?
+  approvedById            String?
+  approvedAt              DateTime?
+  rejectionReason         String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  organization Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sov          ScheduleOfValues       @relation(fields: [sovId], references: [id], onDelete: Cascade)
+  subcontractor Subcontractor?        @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  contract     SubcontractorContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  submittedBy  User                   @relation("SubmittedPaymentApplications", fields: [submittedById], references: [id])
+  reviewedBy   User?                  @relation("ReviewedPaymentApplications", fields: [reviewedById], references: [id])
+  approvedBy   User?                  @relation("ApprovedPaymentApplications", fields: [approvedById], references: [id])
+  lineItems    PaymentApplicationLineItem[]
+  invoices     Invoice[]
+
+  @@unique([projectId, type, applicationNumber, subcontractorId])
+  @@index([orgId, status])
+  @@index([projectId, periodEnd])
+  @@map("payment_applications")
+}
+
+model PaymentApplicationLineItem {
+  id                      String             @id @default(cuid())
+  applicationId           String
+  sovItemId               String
+  orgId                   String
+  workCompletedPrevious   Decimal            @db.Decimal(18, 4)
+  workCompletedThisPeriod Decimal            @db.Decimal(18, 4)
+  materialsPresentlyStored Decimal           @default(0) @db.Decimal(18, 4)
+  totalCompletedAndStored Decimal            @db.Decimal(18, 4)
+  percentComplete         Decimal            @db.Decimal(5, 4)
+  balanceToFinish         Decimal            @db.Decimal(18, 4)
+  retainageWithheld       Decimal            @db.Decimal(18, 4)
+
+  paymentApplication PaymentApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  sovItem            SovItem            @relation(fields: [sovItemId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, sovItemId])
+  @@map("payment_application_line_items")
+}
+
+model Invoice {
+  id                   String        @id @default(cuid())
+  orgId                String
+  projectId            String
+  invoiceNumber        String
+  type                 InvoiceType
+  status               InvoiceStatus @default(DRAFT)
+  vendorId             String?
+  subcontractorId      String?
+  purchaseOrderId      String?
+  paymentApplicationId String?
+  issueDate            DateTime
+  dueDate              DateTime
+  subtotal             Decimal       @db.Decimal(18, 4)
+  taxAmount            Decimal       @default(0) @db.Decimal(18, 4)
+  retainageWithheld    Decimal       @default(0) @db.Decimal(18, 4)
+  totalAmount          Decimal       @db.Decimal(18, 4)
+  amountPaid           Decimal       @default(0) @db.Decimal(18, 4)
+  notes                String?
+  createdById          String
+  approvedById         String?
+  approvedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  organization       Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project            Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor             Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  subcontractor      Subcontractor?      @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  purchaseOrder      PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  paymentApplication PaymentApplication? @relation(fields: [paymentApplicationId], references: [id], onDelete: SetNull)
+  createdBy          User                @relation("CreatedInvoices", fields: [createdById], references: [id])
+  approvedBy         User?               @relation("ApprovedInvoices", fields: [approvedById], references: [id])
+  payments           Payment[]
+  costTransactions   CostTransaction[]
+
+  @@unique([orgId, invoiceNumber])
+  @@index([orgId, status])
+  @@index([projectId, dueDate])
+  @@index([type])
+  @@map("invoices")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  orgId           String
+  invoiceId       String
+  paymentNumber   String
+  amount          Decimal       @db.Decimal(18, 4)
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod
+  referenceNumber String?
+  status          PaymentStatus @default(COMPLETED)
+  notes           String?
+  recordedById    String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recordedBy   User         @relation("RecordedPayments", fields: [recordedById], references: [id])
+
+  @@unique([orgId, paymentNumber])
+  @@index([invoiceId])
+  @@index([orgId, paymentDate])
+  @@map("payments")
+}
+
+model RetainageRelease {
+  id                 String                 @id @default(cuid())
+  orgId              String
+  projectId          String
+  subcontractorId    String?
+  contractId         String?
+  releaseNumber      String
+  totalWithheld      Decimal                @db.Decimal(18, 4)
+  amountToRelease    Decimal                @db.Decimal(18, 4)
+  remainingRetainage Decimal                @db.Decimal(18, 4)
+  status             RetainageReleaseStatus @default(REQUESTED)
+  lienWaiverVerified Boolean                @default(false)
+  requestedById      String
+  approvedById       String?
+  approvedAt         DateTime?
+  releasedAt         DateTime?
+  rejectionReason    String?
+  notes              String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  organization  Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subcontractor Subcontractor?         @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  contract      SubcontractorContract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  requestedBy   User                   @relation("RequestedRetainageReleases", fields: [requestedById], references: [id])
+  approvedBy    User?                  @relation("ApprovedRetainageReleases", fields: [approvedById], references: [id])
+
+  @@unique([projectId, releaseNumber])
+  @@index([orgId, status])
+  @@index([projectId, subcontractorId])
+  @@map("retainage_releases")
 }
 
 

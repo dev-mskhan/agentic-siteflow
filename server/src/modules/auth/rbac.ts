@@ -72,6 +72,26 @@ const ROLE_PERMISSIONS: Record<OrgRole, Set<Permission>> = {
     Permissions.COMPLIANCE_CREATE,
     Permissions.COMPLIANCE_READ,
     Permissions.COMPLIANCE_UPDATE,
+    // Phase 7: Commercial Control
+    Permissions.BUDGET_MANAGE,
+    Permissions.COST_TRANSACTION_CREATE,
+    Permissions.COST_TRANSACTION_READ,
+    Permissions.CHANGE_ORDER_CREATE,
+    Permissions.CHANGE_ORDER_READ,
+    Permissions.CHANGE_ORDER_APPROVE,
+    Permissions.SOV_MANAGE,
+    Permissions.SOV_READ,
+    Permissions.PAYMENT_APPLICATION_CREATE,
+    Permissions.PAYMENT_APPLICATION_READ,
+    Permissions.PAYMENT_APPLICATION_APPROVE,
+    Permissions.INVOICE_CREATE,
+    Permissions.INVOICE_READ,
+    Permissions.INVOICE_APPROVE,
+    Permissions.PAYMENT_RECORD,
+    Permissions.PAYMENT_READ,
+    Permissions.PAYMENT_APPROVE,
+    Permissions.RETAINAGE_RELEASE,
+    Permissions.COMMERCIAL_OVERVIEW_READ,
   ]),
   MEMBER: new Set([
     Permissions.ORGANIZATION_READ,
@@ -93,6 +113,14 @@ const ROLE_PERMISSIONS: Record<OrgRole, Set<Permission>> = {
     Permissions.INSPECTION_READ,
     Permissions.SAFETY_READ,
     Permissions.COMPLIANCE_READ,
+    // Phase 7 reads
+    Permissions.COST_TRANSACTION_READ,
+    Permissions.CHANGE_ORDER_READ,
+    Permissions.SOV_READ,
+    Permissions.PAYMENT_APPLICATION_READ,
+    Permissions.INVOICE_READ,
+    Permissions.PAYMENT_READ,
+    Permissions.COMMERCIAL_OVERVIEW_READ,
   ]),
   BILLING: new Set([
     Permissions.ORGANIZATION_READ,
@@ -101,6 +129,10 @@ const ROLE_PERMISSIONS: Record<OrgRole, Set<Permission>> = {
     Permissions.PROJECT_READ,
     Permissions.ESTIMATE_READ,
     Permissions.ESTIMATE_APPROVE,
+    // Phase 7 billing
+    Permissions.INVOICE_READ,
+    Permissions.PAYMENT_READ,
+    Permissions.COMMERCIAL_OVERVIEW_READ,
   ]),
 };
 
@@ -157,6 +189,19 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.COMPLIANCE_CREATE,
     Permissions.COMPLIANCE_READ,
     Permissions.COMPLIANCE_UPDATE,
+    // Phase 7 PM permissions
+    Permissions.BUDGET_MANAGE,
+    Permissions.COST_TRANSACTION_CREATE,
+    Permissions.COST_TRANSACTION_READ,
+    Permissions.CHANGE_ORDER_CREATE,
+    Permissions.CHANGE_ORDER_READ,
+    Permissions.SOV_MANAGE,
+    Permissions.SOV_READ,
+    Permissions.PAYMENT_APPLICATION_CREATE,
+    Permissions.PAYMENT_APPLICATION_READ,
+    Permissions.INVOICE_CREATE,
+    Permissions.INVOICE_READ,
+    Permissions.COMMERCIAL_OVERVIEW_READ,
   ]),
   FINANCE: new Set([
     Permissions.PROJECT_READ,
@@ -166,6 +211,21 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.PURCHASE_ORDER_READ,
     Permissions.PURCHASE_ORDER_APPROVE,
     Permissions.SUBCONTRACTOR_READ,
+    // Phase 7 Finance permissions
+    Permissions.BUDGET_MANAGE,
+    Permissions.COST_TRANSACTION_CREATE,
+    Permissions.COST_TRANSACTION_READ,
+    Permissions.CHANGE_ORDER_READ,
+    Permissions.CHANGE_ORDER_APPROVE,
+    Permissions.SOV_READ,
+    Permissions.PAYMENT_APPLICATION_READ,
+    Permissions.PAYMENT_APPLICATION_APPROVE,
+    Permissions.INVOICE_READ,
+    Permissions.INVOICE_APPROVE,
+    Permissions.PAYMENT_RECORD,
+    Permissions.PAYMENT_READ,
+    Permissions.RETAINAGE_RELEASE,
+    Permissions.COMMERCIAL_OVERVIEW_READ,
   ]),
   PROCUREMENT: new Set([
     Permissions.PROJECT_READ,
@@ -191,6 +251,10 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.DELIVERY_UPDATE,
     Permissions.INVENTORY_READ,
     Permissions.INVENTORY_TRANSACT,
+    // Phase 7 Procurement
+    Permissions.COST_TRANSACTION_READ,
+    Permissions.INVOICE_READ,
+    Permissions.COMMERCIAL_OVERVIEW_READ,
   ]),
   SITE_SUPERVISOR: new Set([
     Permissions.PROJECT_READ,
@@ -219,6 +283,10 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.DEFICIENCY_RESOLVE,
     Permissions.SAFETY_REPORT,
     Permissions.SAFETY_READ,
+    // Phase 7 Site Supervisor
+    Permissions.COST_TRANSACTION_CREATE,
+    Permissions.COST_TRANSACTION_READ,
+    Permissions.CHANGE_ORDER_READ,
   ]),
   SUBCONTRACTOR: new Set([
     Permissions.PROJECT_READ,
@@ -233,14 +301,27 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.SUBMITTAL_READ,
     Permissions.RFI_READ,
     Permissions.DEFICIENCY_RESOLVE,
+    // Phase 7 Subcontractor permissions
+    Permissions.PAYMENT_APPLICATION_CREATE,
+    Permissions.PAYMENT_APPLICATION_READ,
+    Permissions.INVOICE_CREATE,
+    Permissions.INVOICE_READ,
+    Permissions.CHANGE_ORDER_READ,
   ]),
   CLIENT: new Set([
     Permissions.PROJECT_READ,
     Permissions.DOCUMENT_READ,
     Permissions.RFI_READ,
     Permissions.INSPECTION_READ,
+    // Phase 7 Client permissions
+    Permissions.CHANGE_ORDER_APPROVE,
+    Permissions.PAYMENT_APPLICATION_APPROVE,
+    Permissions.SOV_READ,
+    Permissions.PAYMENT_APPLICATION_READ,
+    Permissions.INVOICE_READ,
+    Permissions.COMMERCIAL_OVERVIEW_READ,
   ]),
-  VIEWER: new Set([Permissions.PROJECT_READ, Permissions.DOCUMENT_READ]),
+  VIEWER: new Set([Permissions.PROJECT_READ, Permissions.DOCUMENT_READ, Permissions.COMMERCIAL_OVERVIEW_READ]),
 };
 
 export function hasPermission(role: OrgRole, permission: Permission): boolean {

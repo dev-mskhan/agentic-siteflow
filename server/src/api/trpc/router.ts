@@ -28,6 +28,14 @@ import { submittalRouter } from "../../modules/project-communications/submittal.
 import { qualityRouter } from "../../modules/quality-safety/quality.router.js";
 import { safetyRouter } from "../../modules/quality-safety/safety.router.js";
 import { complianceRouter } from "../../modules/compliance/compliance.router.js";
+import { budgetRouter } from "../../modules/commercial/budget.router.js";
+import { costTransactionRouter } from "../../modules/commercial/cost-transaction.router.js";
+import { financialVarianceRouter } from "../../modules/commercial/financial-variance.router.js";
+import { changeOrderRouter } from "../../modules/commercial/change-order.router.js";
+import { sovRouter } from "../../modules/commercial/sov.router.js";
+import { paymentApplicationRouter } from "../../modules/commercial/payment-application.router.js";
+import { invoiceRouter, paymentRouter } from "../../modules/commercial/invoice.router.js";
+import { retainageRouter } from "../../modules/commercial/retainage.router.js";
 
 /**
  * Root tRPC application router.
@@ -63,6 +71,16 @@ export const appRouter = router({
   quality: qualityRouter,
   safety: safetyRouter,
   compliance: complianceRouter,
+  // Phase 7: Commercial Control routers
+  budget: budgetRouter,
+  costTransaction: costTransactionRouter,
+  financialVariance: financialVarianceRouter,
+  changeOrder: changeOrderRouter,
+  sov: sovRouter,
+  paymentApplication: paymentApplicationRouter,
+  invoice: invoiceRouter,
+  payment: paymentRouter,
+  retainage: retainageRouter,
 });
 
 // Export the inferred type for the client

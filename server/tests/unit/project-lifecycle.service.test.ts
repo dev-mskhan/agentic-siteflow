@@ -131,7 +131,6 @@ describe("ProjectService.transitionStatus", () => {
       expect.objectContaining({
         action: "PROJECT_STATUS_CHANGED",
         oldValue: { status: "DRAFT" },
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         newValue: expect.objectContaining({ status: "ACTIVE", reason: "Starting now" }),
       }),
     );
