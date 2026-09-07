@@ -1,5 +1,7 @@
+import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 import { NotFoundError, ValidationError } from "../../common/index.js";
 import type { AuditService } from "../audit/audit.service.js";
+import type { NotificationService } from "../notifications/notification.service.js";
 import { auditService as defaultAuditService } from "../audit/audit.router.js";
 import {
   complianceRepository as defaultRepo,
@@ -73,6 +75,7 @@ export class ComplianceService {
       },
     });
 
+    await cacheDel(cacheKey.complianceList(orgId));
     return record;
   }
 
@@ -111,15 +114,18 @@ export class ComplianceService {
       newValue: { status: updated.status, expirationDate: updated.expirationDate },
     });
 
+    await cacheDel(cacheKey.complianceList(orgId));
     return updated;
   }
 
   /**
    * 6.6.5 — Check and scan expiring compliance records, updating expired ones and emitting domain events.
+   * Optionally dispatches real notifications via notifyService when a responsible user is set.
    */
   async checkAndAlertExpiringRecords(
     orgId: string,
     windowDays = 30,
+    notifyService?: NotificationService,
   ): Promise<{ scanned: number; alerted: number; expired: number }> {
     const records = await this.repo.findExpiring(orgId, windowDays);
     const now = new Date();
@@ -137,6 +143,20 @@ export class ComplianceService {
           entityId: record.id,
           newValue: { status: "EXPIRED", expirationDate: record.expirationDate },
         });
+
+        // Send real notification to responsible user if available
+        if (notifyService && record.responsibleUserId) {
+          await notifyService.send({
+            orgId,
+            userId: record.responsibleUserId,
+            type: "COMPLIANCE_EXPIRED",
+            title: "Compliance Record Expired",
+            body: `"${record.title}" has expired as of ${record.expirationDate.toISOString().split("T")[0]}. Immediate renewal required.`,
+            entityType: "ComplianceRecord",
+            entityId: record.id,
+          });
+        }
+
         expired++;
       } else {
         // Active and expiring soon
@@ -154,10 +174,30 @@ export class ComplianceService {
             responsibleUserId: record.responsibleUserId,
           },
         });
+
+        // Send real notification to responsible user if available
+        if (notifyService && record.responsibleUserId) {
+          const daysLeft = record.expirationDate
+            ? Math.ceil(
+                (record.expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+              )
+            : windowDays;
+          await notifyService.send({
+            orgId,
+            userId: record.responsibleUserId,
+            type: "COMPLIANCE_EXPIRING",
+            title: "Compliance Record Expiring Soon",
+            body: `"${record.title}" expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""} on ${record.expirationDate?.toISOString().split("T")[0]}. Please renew.`,
+            entityType: "ComplianceRecord",
+            entityId: record.id,
+          });
+        }
+
         alerted++;
       }
     }
 
+    await cacheDel(cacheKey.complianceList(orgId));
     return { scanned: records.length, alerted, expired };
   }
 
@@ -173,6 +213,16 @@ export class ComplianceService {
     orgId: string,
     filters?: ComplianceFilters,
   ): Promise<{ items: ComplianceRecordWithDetails[]; total: number }> {
+    // Only cache unfiltered list queries
+    if (!filters || Object.keys(filters).length === 0) {
+      const cached = await cacheGet<{ items: ComplianceRecordWithDetails[]; total: number }>(
+        cacheKey.complianceList(orgId),
+      );
+      if (cached) return cached;
+      const result = await this.repo.list(orgId, filters);
+      await cacheSet(cacheKey.complianceList(orgId), result, CACHE_TTL.COMPLIANCE);
+      return result;
+    }
     return this.repo.list(orgId, filters);
   }
 

@@ -3,13 +3,14 @@ import { db } from "../../infrastructure/database/client.js";
 import { createWorker } from "../../infrastructure/queue/index.js";
 import { QUEUES, JOBS } from "../../infrastructure/queue/jobs.js";
 import { auditService } from "../audit/audit.router.js";
+import { notificationService } from "../notifications/notification.service.js";
+import { logger } from "../../infrastructure/logger.js";
 
 export interface CheckOverdueCommunicationsJobData {
   orgId: string;
 }
 
-export async function processOverdueCommunicationsJob(job: Job<CheckOverdueCommunicationsJobData>) {
-  const { orgId } = job.data;
+async function processOverdueCommunicationsForOrg(orgId: string) {
   const now = new Date();
 
   // 1. Scan for overdue open RFIs
@@ -19,7 +20,14 @@ export async function processOverdueCommunicationsJob(job: Job<CheckOverdueCommu
       status: { in: ["OPEN", "UNDER_REVIEW"] },
       dueDate: { not: null, lt: now },
     },
-    select: { id: true, rfiNumber: true, title: true, dueDate: true, assignedToId: true },
+    select: {
+      id: true,
+      rfiNumber: true,
+      title: true,
+      dueDate: true,
+      assignedToId: true,
+      requestedById: true,
+    },
   });
 
   for (const rfi of overdueRfis) {
@@ -37,6 +45,18 @@ export async function processOverdueCommunicationsJob(job: Job<CheckOverdueCommu
         assignedToId: rfi.assignedToId,
       },
     });
+
+    // Notify assignee if set, otherwise notify the requester
+    const recipientId = rfi.assignedToId ?? rfi.requestedById;
+    await notificationService.send({
+      orgId,
+      userId: recipientId,
+      type: "RFI_OVERDUE",
+      title: "RFI Overdue",
+      body: `RFI ${rfi.rfiNumber}: "${rfi.title}" was due on ${rfi.dueDate?.toISOString().split("T")[0]}. Please respond or reassign.`,
+      entityType: "Rfi",
+      entityId: rfi.id,
+    });
   }
 
   // 2. Scan for overdue open Submittals
@@ -46,7 +66,15 @@ export async function processOverdueCommunicationsJob(job: Job<CheckOverdueCommu
       status: { in: ["SUBMITTED", "UNDER_REVIEW"] },
       dueDate: { not: null, lt: now },
     },
-    select: { id: true, submittalNumber: true, revision: true, title: true, dueDate: true, leadReviewerId: true },
+    select: {
+      id: true,
+      submittalNumber: true,
+      revision: true,
+      title: true,
+      dueDate: true,
+      leadReviewerId: true,
+      submittedById: true,
+    },
   });
 
   for (const sub of overdueSubmittals) {
@@ -65,12 +93,53 @@ export async function processOverdueCommunicationsJob(job: Job<CheckOverdueCommu
         leadReviewerId: sub.leadReviewerId,
       },
     });
+
+    // Notify lead reviewer if set, otherwise notify the submitter
+    const recipientId = sub.leadReviewerId ?? sub.submittedById;
+    await notificationService.send({
+      orgId,
+      userId: recipientId,
+      type: "SUBMITTAL_OVERDUE",
+      title: "Submittal Review Overdue",
+      body: `Submittal ${sub.submittalNumber} Rev.${sub.revision}: "${sub.title}" was due on ${sub.dueDate?.toISOString().split("T")[0]}. Please complete review.`,
+      entityType: "Submittal",
+      entityId: sub.id,
+    });
   }
 
   return {
     overdueRfis: overdueRfis.length,
     overdueSubmittals: overdueSubmittals.length,
   };
+}
+
+export async function processOverdueCommunicationsJob(job: Job<CheckOverdueCommunicationsJobData>) {
+  const { orgId } = job.data;
+
+  // Handle "all" sentinel: process every active organization
+  if (orgId === "all") {
+    const orgs = await db.organization.findMany({
+      where: { status: "ACTIVE" },
+      select: { id: true },
+    });
+
+    let totalRfis = 0;
+    let totalSubmittals = 0;
+
+    for (const org of orgs) {
+      try {
+        const result = await processOverdueCommunicationsForOrg(org.id);
+        totalRfis += result.overdueRfis;
+        totalSubmittals += result.overdueSubmittals;
+      } catch (err) {
+        logger.error({ err, orgId: org.id }, "Overdue communications check failed for org");
+      }
+    }
+
+    return { overdueRfis: totalRfis, overdueSubmittals: totalSubmittals };
+  }
+
+  return processOverdueCommunicationsForOrg(orgId);
 }
 
 export function startCommunicationWorker(): Worker<CheckOverdueCommunicationsJobData> {

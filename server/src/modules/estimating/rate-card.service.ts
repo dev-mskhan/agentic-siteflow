@@ -2,6 +2,7 @@ import { NotFoundError } from "../../common/index.js";
 import type { RateCardRepository } from "./rate-card.repository.js";
 import type { AuditService } from "../audit/audit.service.js";
 import { ESTIMATE_AUDIT_ACTIONS } from "./estimate.types.js";
+import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 
 export class RateCardService {
   constructor(
@@ -25,11 +26,16 @@ export class RateCardService {
       newValue: { name: rateCard.name },
     });
 
+    await cacheDel(cacheKey.rateCards(orgId));
     return rateCard;
   }
 
   async listRateCards(orgId: string) {
-    return this.repo.findByOrg(orgId);
+    const cached = await cacheGet<Awaited<ReturnType<RateCardRepository["findByOrg"]>>>(cacheKey.rateCards(orgId));
+    if (cached) return cached;
+    const result = await this.repo.findByOrg(orgId);
+    await cacheSet(cacheKey.rateCards(orgId), result, CACHE_TTL.RATE_CARDS);
+    return result;
   }
 
   async addRateCardItem(
@@ -99,6 +105,7 @@ export class RateCardService {
       newValue: { itemId, ...input },
     });
 
+    await cacheDel(cacheKey.rateCards(orgId));
     return updated;
   }
 
@@ -118,6 +125,7 @@ export class RateCardService {
       entityId: rateCardId,
     });
 
+    await cacheDel(cacheKey.rateCards(orgId));
     return updated;
   }
 }

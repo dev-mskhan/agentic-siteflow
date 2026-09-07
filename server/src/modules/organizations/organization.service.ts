@@ -10,6 +10,7 @@ import type {
 } from "./organization.types.js";
 import type { OrgRole } from "@prisma/client";
 import { db } from "../../infrastructure/database/client.js";
+import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 
 // Slug must be lowercase alphanumeric with hyphens only
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -62,10 +63,13 @@ export class OrganizationService {
   }
 
   async getOrganization(id: string): Promise<OrganizationOutput> {
+    const cached = await cacheGet<OrganizationOutput>(cacheKey.orgMembers(id));
+    if (cached) return cached;
     const org = await this.repo.findById(id);
     if (!org) {
       throw new NotFoundError(`Organization not found`);
     }
+    await cacheSet(cacheKey.orgMembers(id), org, CACHE_TTL.ORG_MEMBERS);
     return org;
   }
 
@@ -79,7 +83,9 @@ export class OrganizationService {
       throw new NotFoundError(`Organization not found`);
     }
 
-    return this.repo.update(id, input);
+    const updated = await this.repo.update(id, input);
+    await cacheDel(cacheKey.orgMembers(id));
+    return updated;
   }
 
   async inviteUser(
@@ -144,6 +150,7 @@ export class OrganizationService {
       return newMember;
     });
 
+    await cacheDel(cacheKey.orgMembers(invitation.orgId));
     return member;
   }
 
@@ -159,6 +166,8 @@ export class OrganizationService {
     await db.organizationMember.delete({
       where: { orgId_userId: { orgId, userId } },
     });
+
+    await cacheDel(cacheKey.orgMembers(orgId));
   }
 
   async listMembers(orgId: string): Promise<MemberWithUser[]> {

@@ -27,6 +27,12 @@ vi.mock("../../src/modules/compliance/compliance.service.js", () => ({
   },
 }));
 
+vi.mock("../../src/modules/notifications/notification.service.js", () => ({
+  notificationService: {
+    send: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 vi.mock("../../src/infrastructure/database/client.js", () => ({
   db: {
     rfi: {
@@ -95,7 +101,7 @@ describe("Phase 6 Background Workers", () => {
 
       const result = await processComplianceExpirationJob(job as never);
 
-      expect(complianceService.checkAndAlertExpiringRecords).toHaveBeenCalledWith("org_1", 45);
+      expect(complianceService.checkAndAlertExpiringRecords).toHaveBeenCalledWith("org_1", 45, expect.anything());
       expect(result).toEqual({ scanned: 5, alerted: 2, expired: 1 });
     });
   });

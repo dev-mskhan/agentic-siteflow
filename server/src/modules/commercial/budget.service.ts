@@ -4,6 +4,7 @@ import type { AuditService } from "../audit/audit.service.js";
 import { auditService as defaultAuditService } from "../audit/audit.router.js";
 import { projectRepository as defaultProjectRepository, type ProjectRepository } from "../projects/project.repository.js";
 import { budgetRepository as defaultBudgetRepository, type BudgetRepository } from "./budget.repository.js";
+import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 import {
   BUDGET_AUDIT_ACTIONS,
   type BudgetItemDetail,
@@ -55,6 +56,7 @@ export class BudgetService {
       newValue: { count: items.length, items },
     });
 
+    await cacheDel(cacheKey.projectBudget(input.projectId));
     return items;
   }
 
@@ -62,6 +64,9 @@ export class BudgetService {
     orgId: string,
     projectId: string,
   ): Promise<ProjectBudgetSummary> {
+    const cached = await cacheGet<ProjectBudgetSummary>(cacheKey.projectBudget(projectId));
+    if (cached) return cached;
+
     const project = await this.projectRepo.findById(orgId, projectId);
     if (!project) {
       throw new NotFoundError("Project not found");
@@ -87,7 +92,7 @@ export class BudgetService {
       ? projectBudgetNum - totalRevisedAmount
       : 0;
 
-    return {
+    const summary: ProjectBudgetSummary = {
       projectId,
       projectBudget: projectBudgetNum,
       totalOriginalAmount,
@@ -98,6 +103,8 @@ export class BudgetService {
       isAllocatedUnderBudget: projectBudgetNum !== null ? totalRevisedAmount <= projectBudgetNum : true,
       items,
     };
+    await cacheSet(cacheKey.projectBudget(projectId), summary, CACHE_TTL.BUDGET);
+    return summary;
   }
 
   async updateBudgetItem(
@@ -135,6 +142,7 @@ export class BudgetService {
       },
     });
 
+    await cacheDel(cacheKey.projectBudget(existing.projectId));
     return updated;
   }
 

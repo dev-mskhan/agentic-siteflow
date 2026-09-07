@@ -126,6 +126,10 @@ export const Permissions = {
   PAYMENT_READ: "payment:read",
   RETAINAGE_RELEASE: "retainage:release",
   COMMERCIAL_OVERVIEW_READ: "commercial:read",
+
+  // Phase 8: Notifications
+  NOTIFICATION_READ: "notification:read",
+  NOTIFICATION_MANAGE: "notification:manage",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];

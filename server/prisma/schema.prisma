@@ -301,6 +301,22 @@ enum ComplianceStatus {
   REVOKED
 }
 
+enum NotificationType {
+  INVOICE_OVERDUE
+  PAYMENT_APP_PENDING
+  COMPLIANCE_EXPIRING
+  COMPLIANCE_EXPIRED
+  RFI_OVERDUE
+  SUBMITTAL_OVERDUE
+  TASK_ASSIGNED
+  TASK_OVERDUE
+  CHANGE_ORDER_APPROVED
+  CHANGE_ORDER_REJECTED
+  PAYMENT_APP_APPROVED
+  PAYMENT_APP_REJECTED
+  SYSTEM
+}
+
 // ─── Commercial Enums ─────────────────────────────────────────────────────────
 
 enum CostTransactionType {
@@ -450,6 +466,7 @@ model Organization {
   invoices              Invoice[]
   payments              Payment[]
   retainageReleases     RetainageRelease[]
+  notifications         Notification[]
 
   @@map("organizations")
 }
@@ -526,6 +543,7 @@ model User {
   recordedPayments          Payment[]           @relation("RecordedPayments")
   requestedRetainageReleases RetainageRelease[] @relation("RequestedRetainageReleases")
   approvedRetainageReleases  RetainageRelease[] @relation("ApprovedRetainageReleases")
+  notifications              Notification[]
 
   @@map("users")
 }
@@ -2248,6 +2266,29 @@ model RetainageRelease {
   @@index([orgId, status])
   @@index([projectId, subcontractorId])
   @@map("retainage_releases")
+}
+
+// ─── Notification Models ──────────────────────────────────────────────────────
+
+model Notification {
+  id         String           @id @default(cuid())
+  orgId      String
+  userId     String
+  type       NotificationType
+  title      String
+  body       String
+  entityType String?
+  entityId   String?
+  isRead     Boolean          @default(false)
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 

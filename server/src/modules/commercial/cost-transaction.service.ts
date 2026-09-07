@@ -1,5 +1,6 @@
 import { CostTransactionStatus, type CostTransaction, type CostTransactionType } from "@prisma/client";
 import { NotFoundError, ValidationError } from "../../common/AppError.js";
+import { cacheDel, cacheKey } from "../../infrastructure/redis/cache.js";
 import type { AuditService } from "../audit/audit.service.js";
 import { auditService as defaultAuditService } from "../audit/audit.router.js";
 import { projectRepository as defaultProjectRepository, type ProjectRepository } from "../projects/project.repository.js";
@@ -57,6 +58,11 @@ export class CostTransactionService {
       },
     });
 
+    await cacheDel(
+      cacheKey.financialOverview(input.projectId),
+      cacheKey.orgFinancialOverview(orgId),
+    );
+
     return transaction;
   }
 
@@ -109,6 +115,11 @@ export class CostTransactionService {
       oldValue: { status: existing.status },
       newValue: { status: voided.status, voidReason: input.voidReason },
     });
+
+    await cacheDel(
+      cacheKey.financialOverview(existing.projectId),
+      cacheKey.orgFinancialOverview(orgId),
+    );
 
     return voided;
   }

@@ -1,6 +1,7 @@
 import { CostTransactionType, InvoiceStatus, Prisma, type Invoice, type Payment } from "@prisma/client";
 import { ConflictError, NotFoundError, ValidationError } from "../../common/AppError.js";
 import { db } from "../../infrastructure/database/client.js";
+import { cacheDel, cacheKey } from "../../infrastructure/redis/cache.js";
 import type { AuditService } from "../audit/audit.service.js";
 import { auditService as defaultAuditService } from "../audit/audit.router.js";
 import { projectRepository as defaultProjectRepository, type ProjectRepository } from "../projects/project.repository.js";
@@ -108,6 +109,11 @@ export class InvoiceService {
       newValue: { status: approved.status, approvedById: userId },
     });
 
+    await cacheDel(
+      cacheKey.financialOverview(inv.projectId),
+      cacheKey.orgFinancialOverview(orgId),
+    );
+
     return approved;
   }
 
@@ -188,6 +194,11 @@ export class InvoiceService {
         invoiceStatus: result.invoice.status,
       },
     });
+
+    await cacheDel(
+      cacheKey.financialOverview(invoice.projectId),
+      cacheKey.orgFinancialOverview(orgId),
+    );
 
     return result;
   }

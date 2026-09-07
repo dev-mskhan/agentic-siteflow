@@ -92,6 +92,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Set<Permission>> = {
     Permissions.PAYMENT_APPROVE,
     Permissions.RETAINAGE_RELEASE,
     Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
   MEMBER: new Set([
     Permissions.ORGANIZATION_READ,
@@ -121,6 +124,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Set<Permission>> = {
     Permissions.INVOICE_READ,
     Permissions.PAYMENT_READ,
     Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
   BILLING: new Set([
     Permissions.ORGANIZATION_READ,
@@ -133,6 +139,9 @@ const ROLE_PERMISSIONS: Record<OrgRole, Set<Permission>> = {
     Permissions.INVOICE_READ,
     Permissions.PAYMENT_READ,
     Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
 };
 
@@ -202,6 +211,9 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.INVOICE_CREATE,
     Permissions.INVOICE_READ,
     Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
   FINANCE: new Set([
     Permissions.PROJECT_READ,
@@ -226,6 +238,9 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.PAYMENT_READ,
     Permissions.RETAINAGE_RELEASE,
     Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
   PROCUREMENT: new Set([
     Permissions.PROJECT_READ,
@@ -255,6 +270,9 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.COST_TRANSACTION_READ,
     Permissions.INVOICE_READ,
     Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
   SITE_SUPERVISOR: new Set([
     Permissions.PROJECT_READ,
@@ -287,6 +305,9 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.COST_TRANSACTION_CREATE,
     Permissions.COST_TRANSACTION_READ,
     Permissions.CHANGE_ORDER_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
   SUBCONTRACTOR: new Set([
     Permissions.PROJECT_READ,
@@ -307,6 +328,9 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.INVOICE_CREATE,
     Permissions.INVOICE_READ,
     Permissions.CHANGE_ORDER_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
   CLIENT: new Set([
     Permissions.PROJECT_READ,
@@ -320,8 +344,15 @@ const PROJECT_ROLE_PERMISSIONS: Record<ProjectRole, Set<Permission>> = {
     Permissions.PAYMENT_APPLICATION_READ,
     Permissions.INVOICE_READ,
     Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
   ]),
-  VIEWER: new Set([Permissions.PROJECT_READ, Permissions.DOCUMENT_READ, Permissions.COMMERCIAL_OVERVIEW_READ]),
+  VIEWER: new Set([Permissions.PROJECT_READ, Permissions.DOCUMENT_READ, Permissions.COMMERCIAL_OVERVIEW_READ,
+    // Phase 8: Notifications
+    Permissions.NOTIFICATION_READ,
+    Permissions.NOTIFICATION_MANAGE,
+  ]),
 };
 
 export function hasPermission(role: OrgRole, permission: Permission): boolean {

@@ -168,7 +168,7 @@ describe("ProjectService.listProjects", () => {
     const service = new ProjectService(repo, makeMockAuditService());
 
     await service.listProjects("org_1");
-    expect(repo.findByOrg).toHaveBeenCalledWith("org_1", undefined);
+    expect(repo.findByOrg).toHaveBeenCalledWith("org_1");
   });
 
   it("passes filters to repo", async () => {

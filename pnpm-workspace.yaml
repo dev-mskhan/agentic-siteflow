@@ -27,3 +27,5 @@ allowBuilds:
   esbuild: true
   msgpackr-extract: true
   prisma: true
+
+nodeLinker: hoisted

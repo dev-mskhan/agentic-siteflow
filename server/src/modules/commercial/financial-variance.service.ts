@@ -1,4 +1,5 @@
 import { NotFoundError } from "../../common/AppError.js";
+import { cacheGet, cacheSet, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 import { projectRepository as defaultProjectRepository, type ProjectRepository } from "../projects/project.repository.js";
 import {
   financialVarianceRepository as defaultVarianceRepo,
@@ -20,6 +21,9 @@ export class FinancialVarianceService {
     orgId: string,
     projectId: string,
   ): Promise<ProjectCommercialOverview> {
+    const cached = await cacheGet<ProjectCommercialOverview>(cacheKey.financialOverview(projectId));
+    if (cached) return cached;
+
     const project = await this.projectRepo.findById(orgId, projectId);
     if (!project) {
       throw new NotFoundError("Project not found");
@@ -129,7 +133,7 @@ export class FinancialVarianceService {
       burnRate = Math.round((totalActualCost / elapsedDays) * 100) / 100;
     }
 
-    return {
+    const overview: ProjectCommercialOverview = {
       projectId,
       projectName: project.name,
       currency: project.currency ?? "USD",
@@ -144,9 +148,14 @@ export class FinancialVarianceService {
       isOverBudget,
       costCodeBreakdown,
     };
+    await cacheSet(cacheKey.financialOverview(projectId), overview, CACHE_TTL.FINANCIAL);
+    return overview;
   }
 
   async getOrgCommercialOverview(orgId: string): Promise<OrgCommercialOverview> {
+    const cached = await cacheGet<OrgCommercialOverview>(cacheKey.orgFinancialOverview(orgId));
+    if (cached) return cached;
+
     const projects = await this.varianceRepo.listOrgProjects(orgId);
 
     const projectSummaries = [];
@@ -178,7 +187,7 @@ export class FinancialVarianceService {
       });
     }
 
-    return {
+    const result: OrgCommercialOverview = {
       totalBudget,
       totalCommitted,
       totalActual,
@@ -187,6 +196,8 @@ export class FinancialVarianceService {
       overBudgetProjectsCount,
       projectSummaries,
     };
+    await cacheSet(cacheKey.orgFinancialOverview(orgId), result, CACHE_TTL.FINANCIAL);
+    return result;
   }
 }
 

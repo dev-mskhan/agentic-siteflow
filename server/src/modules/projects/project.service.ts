@@ -7,6 +7,7 @@ import type { ProjectSettingsRepository, UpdateProjectSettingsInput } from "./pr
 import type { ProjectPhaseRepository, CreatePhaseInput, UpdatePhaseInput } from "./project-phase.repository.js";
 import type { AuditService } from "../audit/audit.service.js";
 import { STATUS_TRANSITIONS, TERMINAL_STATUSES, PROJECT_AUDIT_ACTIONS } from "./project.types.js";
+import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 
 export class ProjectService {
   constructor(
@@ -46,17 +47,28 @@ export class ProjectService {
       entityId: project.id,
       newValue: { name: project.name, projectNumber },
     });
+    await cacheDel(cacheKey.projectList(orgId));
 
     return project;
   }
 
   async getProject(orgId: string, projectId: string) {
+    const cached = await cacheGet<Awaited<ReturnType<ProjectRepository["findById"]>>>(cacheKey.project(projectId));
+    if (cached) return cached;
     const project = await this.repo.findById(orgId, projectId);
     if (!project) throw new NotFoundError("Project not found");
+    await cacheSet(cacheKey.project(projectId), project, CACHE_TTL.PROJECT);
     return project;
   }
 
   async listProjects(orgId: string, filters?: ProjectFilters) {
+    if (!filters) {
+      const cached = await cacheGet<Awaited<ReturnType<ProjectRepository["findByOrg"]>>>(cacheKey.projectList(orgId));
+      if (cached) return cached;
+      const result = await this.repo.findByOrg(orgId);
+      await cacheSet(cacheKey.projectList(orgId), result, CACHE_TTL.PROJECT_LIST);
+      return result;
+    }
     return this.repo.findByOrg(orgId, filters);
   }
 
@@ -80,6 +92,7 @@ export class ProjectService {
       oldValue: { name: project.name },
       newValue: { ...input },
     });
+    await cacheDel(cacheKey.project(projectId), cacheKey.projectList(orgId));
     return updated;
   }
 
@@ -120,7 +133,7 @@ export class ProjectService {
       oldValue: { status: project.status },
       newValue: { status: newStatus, ...(reason ? { reason } : {}) },
     });
-
+    await cacheDel(cacheKey.project(projectId), cacheKey.projectList(orgId));
     return updated;
   }
 
@@ -274,6 +287,7 @@ export class ProjectService {
       entityId: projectId,
       newValue: { phaseId: phase.id, name: phase.name },
     });
+    await cacheDel(cacheKey.project(projectId), cacheKey.projectList(orgId));
 
     return phase;
   }
@@ -337,6 +351,7 @@ export class ProjectService {
       entityId: projectId,
       oldValue: { phaseId, name: phase.name },
     });
+    await cacheDel(cacheKey.project(projectId), cacheKey.projectList(orgId));
   }
 
   async reorderPhases(

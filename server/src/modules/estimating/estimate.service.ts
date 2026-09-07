@@ -1,5 +1,6 @@
 import { db } from "../../infrastructure/database/client.js";
 import { NotFoundError, ValidationError } from "../../common/index.js";
+import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 import type { EstimateRepository } from "./estimate.repository.js";
 import type { EstimateVersionRepository } from "./estimate-version.repository.js";
 import type { BoqItemRepository } from "./boq-item.repository.js";
@@ -65,8 +66,11 @@ export class EstimateService {
   }
 
   async getEstimate(orgId: string, estimateId: string) {
+    const cached = await cacheGet<Awaited<ReturnType<EstimateRepository["findById"]>>>(cacheKey.estimate(estimateId));
+    if (cached) return cached;
     const estimate = await this.repo.findById(orgId, estimateId);
     if (!estimate) throw new NotFoundError("Estimate not found");
+    await cacheSet(cacheKey.estimate(estimateId), estimate, CACHE_TTL.ESTIMATE);
     return estimate;
   }
 
@@ -99,6 +103,7 @@ export class EstimateService {
       newValue: { ...input },
     });
 
+    await cacheDel(cacheKey.estimate(estimateId));
     return updated;
   }
 
@@ -137,6 +142,7 @@ export class EstimateService {
       newValue: { status: newStatus, ...(reason ? { reason } : {}) },
     });
 
+    await cacheDel(cacheKey.estimate(estimateId));
     return updated;
   }
 
@@ -232,6 +238,7 @@ export class EstimateService {
       newValue: { version: estimate.version, changeNote },
     });
 
+    await cacheDel(cacheKey.estimate(estimateId));
     return version;
   }
 

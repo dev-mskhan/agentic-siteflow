@@ -2,6 +2,7 @@ import { ConflictError, NotFoundError } from "../../common/index.js";
 import type { CostCodeRepository, CreateCostCodeInput, UpdateCostCodeInput } from "./cost-code.repository.js";
 import type { AuditService } from "../audit/audit.service.js";
 import { PROJECT_AUDIT_ACTIONS } from "./project.types.js";
+import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
 
 export class CostCodeService {
   constructor(
@@ -32,11 +33,16 @@ export class CostCodeService {
       newValue: { code: costCode.code, name: costCode.name },
     });
 
+    await cacheDel(cacheKey.costCodes(orgId));
     return costCode;
   }
 
   async listCostCodes(orgId: string) {
-    return this.repo.findByOrg(orgId);
+    const cached = await cacheGet<Awaited<ReturnType<CostCodeRepository["findByOrg"]>>>(cacheKey.costCodes(orgId));
+    if (cached) return cached;
+    const result = await this.repo.findByOrg(orgId);
+    await cacheSet(cacheKey.costCodes(orgId), result, CACHE_TTL.COST_CODES);
+    return result;
   }
 
   async updateCostCode(
@@ -61,6 +67,7 @@ export class CostCodeService {
       newValue: { ...input },
     });
 
+    await cacheDel(cacheKey.costCodes(orgId));
     return updated;
   }
 

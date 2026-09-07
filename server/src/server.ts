@@ -4,6 +4,8 @@ import { logger } from "./infrastructure/logger.js";
 import { createApp } from "./app/index.js";
 import { disconnectDb } from "./infrastructure/database/client.js";
 import { disconnectRedis } from "./infrastructure/redis/client.js";
+import { attachSocketServer, io } from "./infrastructure/socket/index.js";
+import { scheduleRecurringJobs } from "./infrastructure/queue/scheduler.js";
 
 /**
  * Server bootstrap.
@@ -12,6 +14,12 @@ import { disconnectRedis } from "./infrastructure/redis/client.js";
  */
 const app = createApp();
 const server = http.createServer(app);
+attachSocketServer(server);
+
+// Schedule recurring BullMQ background jobs (cron)
+scheduleRecurringJobs().catch((err: unknown) => {
+  logger.error({ err }, "scheduleRecurringJobs failed");
+});
 
 server.listen(env.PORT, () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, "Server started");
@@ -33,7 +41,10 @@ function shutdown(signal: string): void {
       process.exit(1);
     }
 
-    void disconnectDb()
+    void new Promise<void>((resolve) => {
+      void io.close(() => resolve());
+    })
+      .then(() => disconnectDb())
       .catch((disconnectErr: unknown) => {
         logger.warn({ err: disconnectErr }, "Error disconnecting database");
       })
