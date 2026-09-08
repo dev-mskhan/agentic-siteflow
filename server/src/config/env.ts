@@ -14,6 +14,11 @@ const envSchema = z.object({
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000), // 1 minute
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100), // requests per window
+  // Per-tenant rate limiting (per organization, stacks on top of global limit)
+  TENANT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  TENANT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1_000),
+  // Per-tenant BullMQ job concurrency
+  TENANT_JOB_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(5),
   // JWT
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   JWT_EXPIRES_IN: z.string().default("15m"),

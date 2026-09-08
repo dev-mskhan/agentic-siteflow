@@ -5,6 +5,7 @@ import { organizationRepository } from "./organization.repository.js";
 import { invitationRepository } from "./invitation.repository.js";
 import { OrganizationService } from "./organization.service.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../common/index.js";
+import { quotaService } from "../auth/quota.service.js";
 
 const orgService = new OrganizationService(organizationRepository, invitationRepository);
 
@@ -134,4 +135,11 @@ export const organizationRouter = router({
         mapError(err);
       }
     }),
+
+  /**
+   * Get storage quota usage for the current user's organization.
+   */
+  storageUsage: authedProcedure.query(async ({ ctx }) => {
+    return quotaService.getQuotaStatus(ctx.user!.orgId, "STORAGE_BYTES");
+  }),
 });

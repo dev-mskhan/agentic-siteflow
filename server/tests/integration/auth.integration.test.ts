@@ -24,6 +24,16 @@ vi.mock("../../src/infrastructure/jwt/jwt.js", () => ({
   createJwtHelper: vi.fn(),
 }));
 
+// ─── Mock the database client so context.ts can load the org role ─────────────
+
+vi.mock("../../src/infrastructure/database/client.js", () => ({
+  db: {
+    organizationMember: {
+      findUnique: vi.fn().mockResolvedValue({ role: "ADMIN" }),
+    },
+  },
+}));
+
 // ─── Mock the organization service to avoid DB calls ─────────────────────────
 
 vi.mock("../../src/modules/organizations/organization.service.js", () => ({

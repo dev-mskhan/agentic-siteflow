@@ -1,6 +1,7 @@
 import { NotFoundError, ValidationError } from "../../common/index.js";
 import type { AuditService } from "../audit/audit.service.js";
 import { auditService as defaultAuditService } from "../audit/audit.router.js";
+import { quotaService } from "../auth/quota.service.js";
 import type { IStorageService } from "../../infrastructure/storage/storage.interface.js";
 import { storageService as defaultStorageService } from "../../infrastructure/storage/index.js";
 import {
@@ -53,7 +54,11 @@ export class DocumentService {
       }
     }
 
+    await quotaService.assertQuota(orgId, "STORAGE_BYTES", input.fileSize);
+
     const doc = await this.repo.create(orgId, userId, input);
+
+    await quotaService.incrementUsage(orgId, "STORAGE_BYTES", input.fileSize);
 
     // Audit log
     await this.audit.log({
@@ -114,7 +119,11 @@ export class DocumentService {
       throw new ValidationError("File size must be greater than 0");
     }
 
+    await quotaService.assertQuota(orgId, "STORAGE_BYTES", input.fileSize);
+
     const updated = await this.repo.addVersion(orgId, documentId, userId, input);
+
+    await quotaService.incrementUsage(orgId, "STORAGE_BYTES", input.fileSize);
 
     // Audit log
     await this.audit.log({

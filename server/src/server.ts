@@ -7,6 +7,7 @@ import { disconnectRedis } from "./infrastructure/redis/client.js";
 import { attachSocketServer, io } from "./infrastructure/socket/index.js";
 import { scheduleRecurringJobs } from "./infrastructure/queue/scheduler.js";
 import { getEmailProvider } from "./infrastructure/email/index.js";
+import { startAllWorkers, stopAllWorkers } from "./workers.js";
 
 /**
  * Server bootstrap.
@@ -21,6 +22,9 @@ attachSocketServer(server);
 getEmailProvider().catch((err: unknown) => {
   logger.error({ err }, "Email provider initialisation failed");
 });
+
+// Start background workers
+startAllWorkers();
 
 // Schedule recurring BullMQ background jobs (cron)
 scheduleRecurringJobs().catch((err: unknown) => {
@@ -47,9 +51,10 @@ function shutdown(signal: string): void {
       process.exit(1);
     }
 
-    void new Promise<void>((resolve) => {
-      void io.close(() => resolve());
-    })
+    void stopAllWorkers()
+      .then(() => new Promise<void>((resolve) => {
+        void io.close(() => resolve());
+      }))
       .then(() => disconnectDb())
       .catch((disconnectErr: unknown) => {
         logger.warn({ err: disconnectErr }, "Error disconnecting database");

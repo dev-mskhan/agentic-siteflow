@@ -7,6 +7,7 @@ import type { OrganizationRepository } from "../organizations/organization.repos
 import type { SessionRepository } from "./session.repository.js";
 import type { RegisterInput, LoginInput, AuthTokens } from "./auth.types.js";
 import { generateRefreshToken, parseExpiresIn } from "./auth.utils.js";
+import { quotaService } from "./quota.service.js";
 
 export class AuthService {
   constructor(
@@ -74,6 +75,8 @@ export class AuthService {
           role: "ADMIN",
         },
       });
+
+      await quotaService.seedDefaults(org.id, tx);
 
       return { org, user };
     });

@@ -8,6 +8,7 @@ import type { ProjectPhaseRepository, CreatePhaseInput, UpdatePhaseInput } from 
 import type { AuditService } from "../audit/audit.service.js";
 import { STATUS_TRANSITIONS, TERMINAL_STATUSES, PROJECT_AUDIT_ACTIONS } from "./project.types.js";
 import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
+import { quotaService } from "../auth/quota.service.js";
 
 export class ProjectService {
   constructor(
@@ -30,6 +31,8 @@ export class ProjectService {
     const count = await this.repo.countByOrg(orgId);
     const projectNumber = `PRJ-${String(count + 1).padStart(4, "0")}`;
 
+    await quotaService.assertQuota(orgId, "PROJECTS");
+
     // Use a transaction to create project + default settings atomically
     const project = await db.$transaction(async (tx) => {
       const created = await tx.project.create({
@@ -38,6 +41,8 @@ export class ProjectService {
       await tx.projectSettings.create({ data: { projectId: created.id } });
       return created;
     });
+
+    await quotaService.incrementUsage(orgId, "PROJECTS");
 
     await this.auditService.log({
       orgId,

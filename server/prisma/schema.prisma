@@ -468,6 +468,7 @@ model Organization {
   retainageReleases     RetainageRelease[]
   notifications         Notification[]
   notificationPreferences NotificationPreference[]
+  tenantQuotas          TenantQuota[]
 
   @@map("organizations")
 }
@@ -2269,6 +2270,41 @@ model RetainageRelease {
   @@index([orgId, status])
   @@index([projectId, subcontractorId])
   @@map("retainage_releases")
+}
+
+// ─── Tenant Quota Models ──────────────────────────────────────────────────────
+
+enum QuotaType {
+  PROJECTS
+  MEMBERS
+  STORAGE_BYTES
+  /// Reserved for Phase 10 AI — present in schema, not enforced until then
+  AI_TOKENS_DAILY
+  AI_REQUESTS_DAILY
+}
+
+enum ResetPeriod {
+  NONE
+  DAILY
+  MONTHLY
+}
+
+model TenantQuota {
+  id           String      @id @default(cuid())
+  orgId        String
+  quotaType    QuotaType
+  limitValue   Int
+  currentUsage Int         @default(0)
+  resetPeriod  ResetPeriod @default(NONE)
+  resetAt      DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, quotaType])
+  @@index([orgId])
+  @@map("tenant_quotas")
 }
 
 // ─── Notification Models ──────────────────────────────────────────────────────

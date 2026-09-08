@@ -9,6 +9,7 @@ import { logger } from "../infrastructure/logger.js";
 import { requestIdMiddleware } from "../middleware/requestId.js";
 import { createCorsMiddleware } from "../middleware/cors.js";
 import { rateLimitMiddleware } from "../middleware/rateLimit.js";
+import { createTenantRateLimitMiddleware } from "../middleware/tenantRateLimit.js";
 import { notFoundHandler } from "../middleware/notFound.js";
 import { errorHandler } from "../middleware/errorHandler.js";
 import { healthRouter } from "../routes/health.js";
@@ -28,6 +29,7 @@ import { createContext } from "../api/trpc/context.js";
  *  4. Request logging        — pino-http, after request ID so logs carry the ID
  *  5. Body parsing           — JSON + urlencoded
  *  6. Rate limiting          — applied after body parsing, before route handlers
+ *  6a. Per-tenant rate limit — per-organization fixed-window Redis counter
  *  7. Application routes     — /health, /ready
  *  8. tRPC                   — /trpc router
  *  9. 404 handler            — catch unmatched routes
@@ -69,6 +71,9 @@ export function createApp(): express.Application {
 
   // ── 6. Rate limiting ───────────────────────────────────────────────────────
   app.use(rateLimitMiddleware);
+
+  // ── 6a. Per-tenant rate limiting ───────────────────────────────────────────
+  app.use(createTenantRateLimitMiddleware());
 
   // ── 7. Application routes ──────────────────────────────────────────────────
   app.use(healthRouter);

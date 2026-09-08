@@ -11,6 +11,7 @@ import type {
 import type { OrgRole } from "@prisma/client";
 import { db } from "../../infrastructure/database/client.js";
 import { cacheGet, cacheSet, cacheDel, cacheKey, CACHE_TTL } from "../../infrastructure/redis/cache.js";
+import { quotaService } from "../auth/quota.service.js";
 
 // Slug must be lowercase alphanumeric with hyphens only
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -59,7 +60,19 @@ export class OrganizationService {
       throw new ConflictError(`Organization slug "${input.slug}" is already taken`);
     }
 
-    return this.repo.create(input);
+    const org = await db.$transaction(async (tx) => {
+      const created = await tx.organization.create({
+        data: {
+          name: input.name,
+          slug: input.slug,
+          plan: input.plan ?? "free",
+        },
+      });
+      await quotaService.seedDefaults(created.id, tx);
+      return created;
+    });
+
+    return org;
   }
 
   async getOrganization(id: string): Promise<OrganizationOutput> {
@@ -103,6 +116,9 @@ export class OrganizationService {
     if (existingMember) {
       throw new ConflictError("User is already a member of this organization");
     }
+
+    // Enforce member quota before creating invitation
+    await quotaService.assertQuota(orgId, "MEMBERS");
 
     const token = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -150,6 +166,7 @@ export class OrganizationService {
       return newMember;
     });
 
+    await quotaService.incrementUsage(invitation.orgId, "MEMBERS");
     await cacheDel(cacheKey.orgMembers(invitation.orgId));
     return member;
   }
@@ -167,6 +184,7 @@ export class OrganizationService {
       where: { orgId_userId: { orgId, userId } },
     });
 
+    await quotaService.decrementUsage(orgId, "MEMBERS");
     await cacheDel(cacheKey.orgMembers(orgId));
   }
 

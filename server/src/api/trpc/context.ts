@@ -1,13 +1,14 @@
 import type { Request, Response } from "express";
 import type { OrgRole } from "@prisma/client";
 import { REQUEST_ID_HEADER } from "../../middleware/index.js";
-import { jwtHelper } from "../../modules/auth/../../infrastructure/jwt/jwt.js";
+import { jwtHelper } from "../../infrastructure/jwt/jwt.js";
+import { db } from "../../infrastructure/database/client.js";
 
 export interface AuthUser {
   id: string;
   orgId: string;
   email: string;
-  role: OrgRole | null;
+  role: OrgRole; // non-nullable — always loaded from DB
 }
 
 /**
@@ -22,11 +23,29 @@ export interface TrpcContext {
   orgId: string | null;
 }
 
-export function createContext({ req, res }: { req: Request; res: Response }): TrpcContext {
+/**
+ * Async context factory.
+ *
+ * For every request carrying a valid Bearer JWT:
+ *  1. Verify the JWT → extract { sub, orgId, email }
+ *  2. Load the OrgRole from organization_members
+ *  3. If the membership record doesn't exist → user = null (UNAUTHORIZED downstream)
+ *
+ * The DB lookup is a single indexed PK query (orgId_userId compound primary key)
+ * and adds ~1-3 ms to every authenticated request — well within the latency budget.
+ */
+export async function createContext({
+  req,
+  res,
+}: {
+  req: Request;
+  res: Response;
+}): Promise<TrpcContext> {
   const requestId =
-    typeof req.headers[REQUEST_ID_HEADER] === "string" ? req.headers[REQUEST_ID_HEADER] : undefined;
+    typeof req.headers[REQUEST_ID_HEADER] === "string"
+      ? req.headers[REQUEST_ID_HEADER]
+      : undefined;
 
-  // Attempt to extract and verify JWT — don't throw if missing/invalid
   let user: AuthUser | null = null;
   let orgId: string | null = null;
 
@@ -35,15 +54,27 @@ export function createContext({ req, res }: { req: Request; res: Response }): Tr
     const token = authHeader.slice(7);
     try {
       const payload = jwtHelper.verify(token);
-      user = {
-        id: payload.sub,
-        orgId: payload.orgId,
-        email: payload.email,
-        role: null, // role is loaded lazily per-procedure if needed
-      };
-      orgId = payload.orgId;
+
+      // Load role from DB — fast compound PK lookup
+      const membership = await db.organizationMember.findUnique({
+        where: {
+          orgId_userId: { orgId: payload.orgId, userId: payload.sub },
+        },
+        select: { role: true },
+      });
+
+      if (membership) {
+        user = {
+          id: payload.sub,
+          orgId: payload.orgId,
+          email: payload.email,
+          role: membership.role,
+        };
+        orgId = payload.orgId;
+      }
+      // If no membership → user stays null → UNAUTHORIZED in authedProcedure
     } catch {
-      // Invalid token — leave user as null; authedProcedure will handle UNAUTHORIZED
+      // Invalid JWT → user = null
     }
   }
 

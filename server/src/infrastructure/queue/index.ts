@@ -1,5 +1,6 @@
 import { Queue, Worker, type Processor, type ConnectionOptions } from "bullmq";
 import { env } from "../../config/index.js";
+import { canStartJob, incrementJobCount, decrementJobCount } from "./tenantJobLimit.js";
 
 /**
  * BullMQ connection options object.
@@ -48,7 +49,10 @@ function createQueue(name: string): Queue {
 
 /**
  * Factory that creates a named BullMQ Worker connected to the shared Redis
- * client.
+ * client. Wraps every processor with the per-tenant job concurrency guard.
+ *
+ * Jobs whose `orgId` has reached the configured limit are moved to delayed
+ * state (5 s backoff) rather than dropped, ensuring no work is lost.
  *
  * @example
  * const worker = createWorker("notifications", async (job) => {
@@ -59,7 +63,29 @@ function createWorker<T = unknown, R = unknown, N extends string = string>(
   name: string,
   processor: Processor<T, R, N>,
 ): Worker<T, R, N> {
-  return new Worker<T, R, N>(name, processor, { connection });
+  const wrappedProcessor: Processor<T, R, N> = async (job) => {
+    const orgId = (job.data as Record<string, unknown>)?.orgId as string | undefined;
+
+    if (orgId) {
+      const allowed = await canStartJob(orgId);
+      if (!allowed) {
+        // Re-queue with backoff rather than dropping the job
+        await job.moveToDelayed(Date.now() + 5_000, job.token);
+        return undefined as R;
+      }
+      await incrementJobCount(orgId);
+    }
+
+    try {
+      return await processor(job);
+    } finally {
+      if (orgId) {
+        await decrementJobCount(orgId);
+      }
+    }
+  };
+
+  return new Worker<T, R, N>(name, wrappedProcessor, { connection });
 }
 
 export { createQueue, createWorker };
