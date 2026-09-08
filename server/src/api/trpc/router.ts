@@ -38,6 +38,7 @@ import { invoiceRouter, paymentRouter } from "../../modules/commercial/invoice.r
 import { retainageRouter } from "../../modules/commercial/retainage.router.js";
 import { notificationRouter } from "../../modules/notifications/notification.router.js";
 import { notificationPreferenceRouter } from "../../modules/notifications/notification-preference.router.js";
+import { reportingRouter } from "../../modules/reporting/reporting.router.js";
 
 /**
  * Root tRPC application router.
@@ -85,6 +86,7 @@ export const appRouter = router({
   retainage: retainageRouter,
   notification: notificationRouter,
   notificationPreference: notificationPreferenceRouter,
+  reporting: reportingRouter,
 });
 
 // Export the inferred type for the client

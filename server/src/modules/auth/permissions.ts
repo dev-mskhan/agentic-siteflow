@@ -130,6 +130,12 @@ export const Permissions = {
   // Phase 8: Notifications
   NOTIFICATION_READ: "notification:read",
   NOTIFICATION_MANAGE: "notification:manage",
+
+  // Phase 9: Reporting
+  /** Read project-level reports (health, schedule, procurement, subcontractor) */
+  REPORT_PROJECT_READ: "report:project:read",
+  /** Read org-level executive dashboard and cost reports */
+  REPORT_ORG_READ: "report:org:read",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];

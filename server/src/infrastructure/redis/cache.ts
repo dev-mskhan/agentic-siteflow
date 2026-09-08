@@ -100,6 +100,21 @@ export const cacheKey = {
   costCodes: (orgId: string) => `cost-codes:org:${orgId}`,
   /** Rate cards for an org (30 min TTL) */
   rateCards: (orgId: string) => `rate-cards:org:${orgId}`,
+  // ─── Phase 9: Reporting ────────────────────────────────────────────────────
+  /** Project health snapshot (5 min TTL) */
+  projectHealth: (projectId: string) => `health:project:${projectId}`,
+  /** Schedule metrics for a project (5 min TTL) */
+  scheduleMetrics: (projectId: string) => `schedule:metrics:${projectId}`,
+  /** Cost metrics for a project (3 min TTL) */
+  costMetrics: (projectId: string) => `cost:metrics:${projectId}`,
+  /** Procurement metrics for a project (5 min TTL) */
+  procurementMetrics: (projectId: string) => `procurement:metrics:${projectId}`,
+  /** Subcontractor metrics for a project (5 min TTL) */
+  subcontractorMetrics: (projectId: string) => `sub:metrics:${projectId}`,
+  /** Full combined project report (3 min TTL) */
+  projectFullReport: (projectId: string) => `report:full:${projectId}`,
+  /** Org executive dashboard (3 min TTL) */
+  orgDashboard: (orgId: string) => `exec:dashboard:${orgId}`,
 } as const;
 
 // ─── TTL constants (in seconds) ──────────────────────────────────────────────
@@ -127,4 +142,9 @@ export const CACHE_TTL = {
   RATE_CARDS: 1800,
   /** 5 minutes — compliance records updated by background worker */
   COMPLIANCE: 300,
+  // ─── Phase 9: Reporting ────────────────────────────────────────────────────
+  /** 5 minutes — project-level reports (health, schedule, procurement, subcontractors) */
+  REPORT_PROJECT: 300,
+  /** 3 minutes — cost metrics and org dashboard (higher churn due to financial writes) */
+  REPORT_ORG: 180,
 } as const;
