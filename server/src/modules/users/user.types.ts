@@ -13,6 +13,8 @@ export interface UpdateUserInput {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string;
+  /** E.164 phone number (e.g. +14155552671), used for WhatsApp notifications */
+  phone?: string | null;
   status?: UserStatus;
 }
 
@@ -25,6 +27,8 @@ export interface UserOutput {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  /** E.164 phone number, nullable */
+  phone: string | null;
   status: UserStatus;
   createdAt: Date;
   updatedAt: Date;

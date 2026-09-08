@@ -18,6 +18,23 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   JWT_EXPIRES_IN: z.string().default("15m"),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
+  // Email
+  EMAIL_PROVIDER: z.enum(["smtp", "sendgrid", "none"]).default("none"),
+  SMTP_HOST: z.string().default("localhost"),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default("noreply@siteflow.local"),
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM: z.string().optional(),
+  // WhatsApp
+  WHATSAPP_PROVIDER: z.enum(["meta", "twilio", "none"]).default("none"),
+  WHATSAPP_META_TOKEN: z.string().optional(),
+  WHATSAPP_META_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_META_API_VERSION: z.string().default("v20.0"),
+  WHATSAPP_TWILIO_ACCOUNT_SID: z.string().optional(),
+  WHATSAPP_TWILIO_AUTH_TOKEN: z.string().optional(),
+  WHATSAPP_TWILIO_FROM: z.string().optional(),
   // Storage
   STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
   S3_ENDPOINT: z.string().default("localhost"),

@@ -6,6 +6,7 @@ import { disconnectDb } from "./infrastructure/database/client.js";
 import { disconnectRedis } from "./infrastructure/redis/client.js";
 import { attachSocketServer, io } from "./infrastructure/socket/index.js";
 import { scheduleRecurringJobs } from "./infrastructure/queue/scheduler.js";
+import { getEmailProvider } from "./infrastructure/email/index.js";
 
 /**
  * Server bootstrap.
@@ -15,6 +16,11 @@ import { scheduleRecurringJobs } from "./infrastructure/queue/scheduler.js";
 const app = createApp();
 const server = http.createServer(app);
 attachSocketServer(server);
+
+// Initialise the email provider singleton (lazy-loads sendgrid only when configured)
+getEmailProvider().catch((err: unknown) => {
+  logger.error({ err }, "Email provider initialisation failed");
+});
 
 // Schedule recurring BullMQ background jobs (cron)
 scheduleRecurringJobs().catch((err: unknown) => {

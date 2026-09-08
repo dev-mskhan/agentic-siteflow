@@ -16,6 +16,8 @@ import {
   type RejectPaymentApplicationInput,
 } from "./payment-application.types.js";
 import { assertNotSelfApprover } from "./segregation.guard.js";
+import { notificationService } from "../notifications/notification.service.js";
+import { logger } from "../../infrastructure/logger.js";
 
 export class PaymentApplicationService {
   constructor(
@@ -145,6 +147,24 @@ export class PaymentApplicationService {
       newValue: { status: approved.status, approvedById: userId },
     });
 
+    // Notify the submitter that their payment application was approved
+    if (app.submittedById !== userId) {
+      const amount = Number(app.currentPaymentDue).toFixed(2);
+      void notificationService
+        .send({
+          orgId,
+          userId: app.submittedById,
+          type: "PAYMENT_APP_APPROVED",
+          title: "Payment Application Approved",
+          body: `Payment Application #${app.applicationNumber} ($${amount}) has been approved.`,
+          entityType: "PaymentApplication",
+          entityId: id,
+        })
+        .catch((err: unknown) => {
+          logger.warn({ err, paymentAppId: id }, "PAYMENT_APP_APPROVED notification failed");
+        });
+    }
+
     return approved;
   }
 
@@ -182,6 +202,23 @@ export class PaymentApplicationService {
       oldValue: { status: app.status },
       newValue: { status: rejected.status, rejectionReason: input.rejectionReason },
     });
+
+    // Notify the submitter that their payment application was rejected
+    if (app.submittedById !== userId) {
+      void notificationService
+        .send({
+          orgId,
+          userId: app.submittedById,
+          type: "PAYMENT_APP_REJECTED",
+          title: "Payment Application Rejected",
+          body: `Payment Application #${app.applicationNumber} has been rejected.${input.rejectionReason ? ` Reason: ${input.rejectionReason}` : ""}`,
+          entityType: "PaymentApplication",
+          entityId: input.id,
+        })
+        .catch((err: unknown) => {
+          logger.warn({ err, paymentAppId: input.id }, "PAYMENT_APP_REJECTED notification failed");
+        });
+    }
 
     return rejected;
   }

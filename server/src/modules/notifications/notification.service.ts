@@ -4,6 +4,8 @@ import {
   type NotificationFilters,
 } from "./notification.repository.js";
 import { emitToUser } from "../../infrastructure/socket/index.js";
+import { sendEmailNotification } from "./email.channel.js";
+import { sendWhatsAppNotification } from "./whatsapp.channel.js";
 import { logger } from "../../infrastructure/logger.js";
 
 export interface SendNotificationInput {
@@ -21,21 +23,56 @@ export interface SendNotificationInput {
 
 export class NotificationService {
   /**
-   * Persist a notification to the database and emit it to the
-   * recipient's socket room in one atomic operation.
+   * Persist a notification and fan out to all delivery channels.
    *
-   * The socket emit is best-effort: if the user is offline or the
-   * socket server is unavailable, the DB row is already committed
-   * and the notification will be visible on next load via the REST API.
+   * Delivery order:
+   *  1. DB persist (source of truth — always happens first)
+   *  2. Socket.io emit (real-time, best-effort)
+   *  3. Email (preference-gated, best-effort)
+   *  4. WhatsApp (preference-gated, best-effort)
+   *
+   * Channels 2–4 are individually wrapped in try/catch.
+   * A failure in any channel never aborts the others or rolls back the DB row.
    */
   async send(input: SendNotificationInput): Promise<void> {
+    // 1. Persist — this is the only step that can throw (DB errors bubble up)
     const notif = await notificationRepository.create(input);
+
+    // 2. Real-time socket push
     try {
       emitToUser(input.userId, "notification", notif);
     } catch (err) {
-      // Socket emit failure must never abort the notification — DB write already succeeded
-      logger.warn({ err, userId: input.userId, notifId: notif.id }, "Socket emit failed for notification");
+      logger.warn(
+        { err, userId: input.userId, notifId: notif.id },
+        "Socket emit failed for notification",
+      );
     }
+
+    // 3. Email (checks user preference + EMAIL_PROVIDER env internally)
+    void sendEmailNotification(
+      input.userId,
+      input.orgId,
+      input.type,
+      input.title,
+      input.body,
+      input.entityType,
+      input.entityId,
+    ).catch((err: unknown) => {
+      logger.warn({ err, userId: input.userId, type: input.type }, "Email channel error");
+    });
+
+    // 4. WhatsApp (checks user preference + WHATSAPP_PROVIDER env internally)
+    void sendWhatsAppNotification(
+      input.userId,
+      input.orgId,
+      input.type,
+      input.title,
+      input.body,
+      input.entityType,
+      input.entityId,
+    ).catch((err: unknown) => {
+      logger.warn({ err, userId: input.userId, type: input.type }, "WhatsApp channel error");
+    });
   }
 
   async list(

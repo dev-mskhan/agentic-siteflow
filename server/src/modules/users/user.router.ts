@@ -25,6 +25,12 @@ const updateUserSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
   lastName: z.string().min(1).max(100).optional(),
   avatarUrl: z.string().url().optional(),
+  /** E.164 phone number for WhatsApp (e.g. +14155552671). Pass null to clear. */
+  phone: z
+    .string()
+    .regex(/^\+[1-9]\d{6,14}$/, "Phone must be in E.164 format (e.g. +14155552671)")
+    .nullable()
+    .optional(),
 });
 
 export const userRouter = router({

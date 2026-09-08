@@ -32,6 +32,8 @@ export class UserRepository {
         ...(input.firstName !== undefined && { firstName: input.firstName }),
         ...(input.lastName !== undefined && { lastName: input.lastName }),
         ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
+        // phone: null clears the field, undefined skips it
+        ...(input.phone !== undefined && { phone: input.phone }),
         ...(input.status !== undefined && { status: input.status }),
       },
     });

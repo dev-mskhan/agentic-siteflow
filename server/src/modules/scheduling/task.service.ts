@@ -30,6 +30,8 @@ import {
 import type { ScheduleBaselineRepository } from "./schedule-baseline.repository.js";
 import { scheduleBaselineRepository } from "./schedule-baseline.repository.js";
 import { TASK_DOMAIN_EVENTS } from "./task.types.js";
+import { notificationService } from "../notifications/notification.service.js";
+import { logger } from "../../infrastructure/logger.js";
 
 function serializeHistoryValue(value: unknown): string | null | undefined {
   if (value === undefined) return undefined;
@@ -122,6 +124,23 @@ export class TaskService {
       newValue: { name: task.name, projectId, status: task.status },
     });
 
+    // Notify the assignee if one was set at creation time
+    if (task.assigneeId && task.assigneeId !== userId) {
+      void notificationService
+        .send({
+          orgId,
+          userId: task.assigneeId,
+          type: "TASK_ASSIGNED",
+          title: "Task Assigned to You",
+          body: `You have been assigned to "${task.name}".`,
+          entityType: "Task",
+          entityId: task.id,
+        })
+        .catch((err: unknown) => {
+          logger.warn({ err, taskId: task.id }, "TASK_ASSIGNED notification failed");
+        });
+    }
+
     return task;
   }
 
@@ -199,6 +218,27 @@ export class TaskService {
         changedFields.map((field) => [field, serializeHistoryValue(input[field])]),
       ),
     });
+
+    // Notify the new assignee when assigneeId changes to a different user
+    if (
+      changedFields.includes("assigneeId") &&
+      input.assigneeId &&
+      input.assigneeId !== userId
+    ) {
+      void notificationService
+        .send({
+          orgId,
+          userId: input.assigneeId,
+          type: "TASK_ASSIGNED",
+          title: "Task Assigned to You",
+          body: `You have been assigned to "${updated.name}".`,
+          entityType: "Task",
+          entityId: taskId,
+        })
+        .catch((err: unknown) => {
+          logger.warn({ err, taskId }, "TASK_ASSIGNED notification failed on update");
+        });
+    }
 
     if (task.status !== "DONE" && input.status === "DONE") {
       await this.audit.log({

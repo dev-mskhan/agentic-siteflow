@@ -22,6 +22,7 @@ export async function scheduleRecurringJobs(): Promise<void> {
     const complianceQueue = createQueue(QUEUES.COMPLIANCE);
     const commercialQueue = createQueue(QUEUES.COMMERCIAL);
     const communicationsQueue = createQueue(QUEUES.COMMUNICATIONS);
+    const tasksQueue = createQueue(QUEUES.TASKS);
 
     await Promise.all([
       complianceQueue.add(
@@ -54,6 +55,14 @@ export async function scheduleRecurringJobs(): Promise<void> {
         {
           repeat: { pattern: "0 8 * * *" },
           jobId: `recurring:${JOBS.CHECK_OVERDUE_RFIS_AND_SUBMITTALS}`,
+        },
+      ),
+      tasksQueue.add(
+        JOBS.CHECK_OVERDUE_TASKS,
+        { orgId: "all" },
+        {
+          repeat: { pattern: "0 7 * * *" },
+          jobId: `recurring:${JOBS.CHECK_OVERDUE_TASKS}`,
         },
       ),
     ]);

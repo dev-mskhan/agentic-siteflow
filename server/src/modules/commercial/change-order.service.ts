@@ -19,6 +19,8 @@ import {
   type RejectChangeOrderInput,
 } from "./change-order.types.js";
 import { assertNotSelfApprover } from "./segregation.guard.js";
+import { notificationService } from "../notifications/notification.service.js";
+import { logger } from "../../infrastructure/logger.js";
 
 export class ChangeOrderService {
   constructor(
@@ -186,6 +188,23 @@ export class ChangeOrderService {
       },
     });
 
+    // Notify the requester that their change order was approved
+    if (co.requestedById !== userId) {
+      void notificationService
+        .send({
+          orgId,
+          userId: co.requestedById,
+          type: "CHANGE_ORDER_APPROVED",
+          title: "Change Order Approved",
+          body: `Change Order "${co.title}" (${co.changeOrderNumber}) has been approved.`,
+          entityType: "ChangeOrder",
+          entityId: input.id,
+        })
+        .catch((err: unknown) => {
+          logger.warn({ err, changeOrderId: input.id }, "CHANGE_ORDER_APPROVED notification failed");
+        });
+    }
+
     await cacheDel(
       cacheKey.projectBudget(co.projectId),
       cacheKey.financialOverview(co.projectId),
@@ -229,6 +248,23 @@ export class ChangeOrderService {
       oldValue: { status: co.status },
       newValue: { status: rejected.status, rejectionReason: input.rejectionReason },
     });
+
+    // Notify the requester that their change order was rejected
+    if (co.requestedById !== userId) {
+      void notificationService
+        .send({
+          orgId,
+          userId: co.requestedById,
+          type: "CHANGE_ORDER_REJECTED",
+          title: "Change Order Rejected",
+          body: `Change Order "${co.title}" (${co.changeOrderNumber}) has been rejected.${input.rejectionReason ? ` Reason: ${input.rejectionReason}` : ""}`,
+          entityType: "ChangeOrder",
+          entityId: input.id,
+        })
+        .catch((err: unknown) => {
+          logger.warn({ err, changeOrderId: input.id }, "CHANGE_ORDER_REJECTED notification failed");
+        });
+    }
 
     return rejected;
   }

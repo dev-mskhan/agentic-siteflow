@@ -2,6 +2,7 @@ import { startDocumentWorker } from "./modules/documents/document.worker.js";
 import { startComplianceWorker } from "./modules/compliance/compliance.worker.js";
 import { startCommunicationWorker } from "./modules/project-communications/communication.worker.js";
 import { startCommercialWorker } from "./modules/commercial/commercial.worker.js";
+import { startTaskWorker } from "./modules/scheduling/task.worker.js";
 import { logger } from "./infrastructure/logger.js";
 
 let workers: { close: () => Promise<void> }[] = [];
@@ -12,8 +13,9 @@ export function startAllWorkers() {
     const compWorker = startComplianceWorker();
     const commWorker = startCommunicationWorker();
     const commlWorker = startCommercialWorker();
-    workers = [docWorker, compWorker, commWorker, commlWorker];
-    logger.info("Phase 6 & 7 background workers started successfully");
+    const taskWorker = startTaskWorker();
+    workers = [docWorker, compWorker, commWorker, commlWorker, taskWorker];
+    logger.info("Background workers started successfully (docs, compliance, comms, commercial, tasks)");
   } catch (err) {
     logger.error({ err }, "Failed to initialize background workers");
   }
