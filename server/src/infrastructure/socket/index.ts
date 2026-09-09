@@ -1,6 +1,8 @@
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 import type { Server as HttpServer } from "http";
 import { jwtHelper } from "../jwt/jwt.js";
+import { redis } from "../redis/client.js";
 import { env } from "../../config/index.js";
 import { logger } from "../logger.js";
 
@@ -14,6 +16,13 @@ import { logger } from "../logger.js";
  *  - Client must pass JWT in socket.handshake.auth.token
  *  - On success the socket joins rooms `user:{userId}` and `org:{orgId}`
  *  - On failure the socket is disconnected immediately
+ *
+ * Multi-instance mode (REDIS_SOCKET_ADAPTER=true):
+ *  - The Redis adapter is attached so broadcasts reach clients on any instance.
+ *  - Two separate ioredis connections are used: the shared singleton for pub,
+ *    and a dedicated duplicate client for sub (ioredis subscriber mode is
+ *    exclusive — a subscribed client cannot issue regular commands).
+ *  - emitToUser / emitToOrg work identically regardless of adapter mode.
  */
 export const io = new Server({
   cors: {
@@ -32,6 +41,26 @@ export const io = new Server({
 export function attachSocketServer(httpServer: HttpServer): void {
   io.attach(httpServer);
 
+  // ── Redis adapter (multi-instance mode) ─────────────────────────────────
+  // When REDIS_SOCKET_ADAPTER=true, attach the Redis pub/sub adapter so that
+  // broadcasts from one server instance are forwarded to all other instances.
+  // The adapter requires two independent connections:
+  //   • pubClient — the shared ioredis singleton (used for regular commands too)
+  //   • subClient — a dedicated duplicate that enters subscriber mode
+  // Using redis.duplicate() copies the connection options without sharing state.
+  if (env.REDIS_SOCKET_ADAPTER) {
+    const subClient = redis.duplicate();
+
+    // Surface sub-client errors through the same logger so they don't go silent
+    subClient.on("error", (err: unknown) => {
+      logger.warn({ err }, "Socket.IO Redis adapter sub-client error");
+    });
+
+    io.adapter(createAdapter(redis, subClient));
+    logger.info("Socket.IO Redis adapter enabled (multi-instance mode)");
+  }
+
+  // ── Connection handler ───────────────────────────────────────────────────
   io.on("connection", (socket) => {
     const token = socket.handshake.auth?.token as string | undefined;
 
@@ -67,6 +96,8 @@ export function attachSocketServer(httpServer: HttpServer): void {
 /**
  * Emit an event to a specific user's socket room.
  * Safe to call even if the user is not currently connected (no-op in that case).
+ * Works with both the in-memory adapter (single-instance) and the Redis adapter
+ * (multi-instance) without any changes at the call site.
  */
 export function emitToUser(userId: string, event: string, payload: unknown): void {
   io.to(`user:${userId}`).emit(event, payload);
@@ -74,6 +105,8 @@ export function emitToUser(userId: string, event: string, payload: unknown): voi
 
 /**
  * Emit an event to all connected sockets in an organization.
+ * Works with both the in-memory adapter (single-instance) and the Redis adapter
+ * (multi-instance) without any changes at the call site.
  */
 export function emitToOrg(orgId: string, event: string, payload: unknown): void {
   io.to(`org:${orgId}`).emit(event, payload);

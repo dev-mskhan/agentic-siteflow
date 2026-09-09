@@ -11,6 +11,10 @@ const envSchema = z.object({
     .min(1)
     .default("postgresql://siteflow:siteflow@localhost:5432/siteflow?schema=public"),
   REDIS_URL: z.string().min(1).default("redis://localhost:6379"),
+  // Enable the Socket.IO Redis adapter for multi-instance deployments.
+  // Set to true when running multiple server instances behind a load balancer.
+  // Requires Redis to be available. Defaults to false (single-instance mode).
+  REDIS_SOCKET_ADAPTER: z.coerce.boolean().default(false),
   // CORS — comma-separated list of allowed origins
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
   // Rate limiting

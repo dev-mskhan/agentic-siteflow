@@ -59,14 +59,27 @@ export async function cacheDel(...keys: string[]): Promise<void> {
 /**
  * Delete all keys matching a glob pattern (e.g. `fin:project:*`).
  *
- * Uses KEYS which is acceptable for cache invalidation on low-cardinality patterns.
- * Do NOT use this on hot read paths.
+ * Uses a non-blocking SCAN cursor loop (100-key batches) instead of KEYS,
+ * so it never stalls the Redis event loop regardless of keyspace size.
+ * Safe to call on any pattern — including broad wildcards.
  */
 export async function cacheDelPattern(pattern: string): Promise<void> {
   try {
-    const keys = await redis.keys(pattern);
-    if (keys.length > 0) {
-      await redis.del(...keys);
+    let cursor = "0";
+    const keysToDelete: string[] = [];
+    do {
+      const [nextCursor, keys] = await redis.scan(
+        cursor,
+        "MATCH",
+        pattern,
+        "COUNT",
+        100,
+      );
+      cursor = nextCursor;
+      keysToDelete.push(...keys);
+    } while (cursor !== "0");
+    if (keysToDelete.length > 0) {
+      await redis.del(...keysToDelete);
     }
   } catch (err) {
     logger.warn({ err, pattern }, "cache.delPattern error");
