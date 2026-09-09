@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { budgetService } from "./budget.service.js";
 import {
   ConflictError,
@@ -9,6 +9,7 @@ import {
   ValidationError,
   ForbiddenError,
 } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 function mapError(err: unknown): never {
   if (err instanceof NotFoundError) {
@@ -49,7 +50,7 @@ const updateBudgetItemSchema = z.object({
 });
 
 export const budgetRouter = router({
-  setBudget: authedProcedure
+  setBudget: permissionProcedure(Permissions.BUDGET_MANAGE)
     .input(setBudgetSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -69,7 +70,7 @@ export const budgetRouter = router({
       }
     }),
 
-  updateBudgetItem: authedProcedure
+  updateBudgetItem: permissionProcedure(Permissions.BUDGET_MANAGE)
     .input(updateBudgetItemSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;

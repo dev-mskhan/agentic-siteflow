@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { ChangeOrderStatus, ChangeOrderType } from "@prisma/client";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { changeOrderService } from "./change-order.service.js";
 import {
   ConflictError,
@@ -10,6 +10,7 @@ import {
   ValidationError,
   ForbiddenError,
 } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 function mapError(err: unknown): never {
   if (err instanceof NotFoundError) {
@@ -101,7 +102,7 @@ export const changeOrderRouter = router({
       }
     }),
 
-  approve: authedProcedure
+  approve: permissionProcedure(Permissions.CHANGE_ORDER_APPROVE)
     .input(
       z.object({
         id: cuidSchema,
@@ -117,7 +118,7 @@ export const changeOrderRouter = router({
       }
     }),
 
-  reject: authedProcedure
+  reject: permissionProcedure(Permissions.CHANGE_ORDER_APPROVE)
     .input(z.object({ id: cuidSchema, rejectionReason: z.string().min(1).max(500) }))
     .mutation(async ({ ctx, input }) => {
       try {

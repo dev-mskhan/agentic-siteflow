@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { EstimateStatus } from "@prisma/client";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { estimateRepository } from "./estimate.repository.js";
 import { estimateVersionRepository } from "./estimate-version.repository.js";
 import { boqItemRepository } from "./boq-item.repository.js";
@@ -10,6 +10,7 @@ import { auditRepository } from "../audit/audit.repository.js";
 import { EstimateService } from "./estimate.service.js";
 import { ConflictError, NotFoundError, ValidationError, UnauthorizedError } from "../../common/index.js";
 import { getAllUnits } from "./units.js";
+import { Permissions } from "../auth/permissions.js";
 
 export const estimateService = new EstimateService(
   estimateRepository,
@@ -136,8 +137,9 @@ export const estimateRouter = router({
 
   /**
    * Transition estimate status.
+   * Approve/reject requires ESTIMATE_APPROVE; other transitions require ESTIMATE_UPDATE.
    */
-  transition: authedProcedure
+  transition: permissionProcedure(Permissions.ESTIMATE_APPROVE)
     .input(
       z.object({
         estimateId: z.string().cuid(),
@@ -305,8 +307,9 @@ export const estimateRouter = router({
 
   /**
    * Convert an approved estimate to a project.
+   * Requires PROJECT_CREATE — org admins only.
    */
-  convertToProject: authedProcedure
+  convertToProject: permissionProcedure(Permissions.PROJECT_CREATE)
     .input(
       z.object({
         estimateId: z.string().cuid(),

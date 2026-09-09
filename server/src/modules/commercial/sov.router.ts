@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { SovType } from "@prisma/client";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { sovService } from "./sov.service.js";
 import {
   ConflictError,
@@ -10,6 +10,7 @@ import {
   ValidationError,
   ForbiddenError,
 } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 function mapError(err: unknown): never {
   if (err instanceof NotFoundError) {
@@ -49,7 +50,7 @@ const createSovSchema = z.object({
 });
 
 export const sovRouter = router({
-  create: authedProcedure
+  create: permissionProcedure(Permissions.SOV_MANAGE)
     .input(createSovSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -79,7 +80,7 @@ export const sovRouter = router({
       }
     }),
 
-  activate: authedProcedure
+  activate: permissionProcedure(Permissions.SOV_MANAGE)
     .input(z.object({ id: cuidSchema }))
     .mutation(async ({ ctx, input }) => {
       try {

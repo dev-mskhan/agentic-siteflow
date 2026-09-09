@@ -4,6 +4,8 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
+  // Frontend URL — used to build password reset and email verification links
+  APP_URL: z.string().url().default("http://localhost:5173"),
   DATABASE_URL: z
     .string()
     .min(1)

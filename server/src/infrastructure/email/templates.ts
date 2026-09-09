@@ -6,6 +6,165 @@ export interface RenderedEmail {
   text: string;
 }
 
+// ─── Auth Email Templates ─────────────────────────────────────────────────────
+
+/**
+ * Password reset email.
+ * The reset link expires in 1 hour — stated explicitly in the email.
+ */
+export function renderPasswordResetEmail(firstName: string, resetUrl: string): RenderedEmail {
+  const subject = "Reset your SiteFlow password";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+          <tr>
+            <td style="background-color: #1a56db; padding: 24px 32px;">
+              <span style="color: #ffffff; font-size: 20px; font-weight: bold; letter-spacing: 0.5px;">SiteFlow</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px;">
+              <h1 style="margin: 0 0 12px 0; font-size: 20px; color: #111827;">Reset your password</h1>
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                Hi ${escapeHtml(firstName)},
+              </p>
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                We received a request to reset your SiteFlow password. Click the button below to choose a new password.
+                This link expires in <strong>1 hour</strong>.
+              </p>
+              <p style="margin: 0 0 24px 0;">
+                <a href="${escapeHtml(resetUrl)}"
+                   style="display: inline-block; background-color: #1a56db; color: #ffffff; font-size: 15px;
+                          font-weight: bold; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
+                  Reset password
+                </a>
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
+                If you did not request a password reset, you can safely ignore this email.
+                Your password will not change.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f9fafb; padding: 20px 32px; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0; font-size: 12px; color: #6b7280;">
+                If the button above doesn't work, copy and paste this link into your browser:<br />
+                <a href="${escapeHtml(resetUrl)}" style="color: #1a56db; word-break: break-all;">${escapeHtml(resetUrl)}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = [
+    `SiteFlow — Reset your password`,
+    `${"─".repeat(40)}`,
+    `Hi ${firstName},`,
+    ``,
+    `We received a request to reset your SiteFlow password.`,
+    `Click the link below to choose a new password (expires in 1 hour):`,
+    ``,
+    resetUrl,
+    ``,
+    `If you did not request a password reset, you can safely ignore this email.`,
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
+/**
+ * Email verification email.
+ * The verification link expires in 24 hours.
+ */
+export function renderEmailVerificationEmail(firstName: string, verifyUrl: string): RenderedEmail {
+  const subject = "Verify your SiteFlow email address";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+          <tr>
+            <td style="background-color: #1a56db; padding: 24px 32px;">
+              <span style="color: #ffffff; font-size: 20px; font-weight: bold; letter-spacing: 0.5px;">SiteFlow</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px;">
+              <h1 style="margin: 0 0 12px 0; font-size: 20px; color: #111827;">Verify your email address</h1>
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                Hi ${escapeHtml(firstName)},
+              </p>
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                Welcome to SiteFlow! Please verify your email address to activate your account.
+                This link expires in <strong>24 hours</strong>.
+              </p>
+              <p style="margin: 0 0 24px 0;">
+                <a href="${escapeHtml(verifyUrl)}"
+                   style="display: inline-block; background-color: #1a56db; color: #ffffff; font-size: 15px;
+                          font-weight: bold; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
+                  Verify email
+                </a>
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
+                If you didn't create a SiteFlow account, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f9fafb; padding: 20px 32px; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0; font-size: 12px; color: #6b7280;">
+                If the button above doesn't work, copy and paste this link into your browser:<br />
+                <a href="${escapeHtml(verifyUrl)}" style="color: #1a56db; word-break: break-all;">${escapeHtml(verifyUrl)}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = [
+    `SiteFlow — Verify your email address`,
+    `${"─".repeat(40)}`,
+    `Hi ${firstName},`,
+    ``,
+    `Welcome to SiteFlow! Please verify your email address to activate your account.`,
+    `Click the link below (expires in 24 hours):`,
+    ``,
+    verifyUrl,
+    ``,
+    `If you didn't create a SiteFlow account, you can safely ignore this email.`,
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
+// ─── Notification Email Template ──────────────────────────────────────────────
+
 /**
  * Subject prefix map for each notification type.
  * This drives email subject lines without needing a per-type template file.

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { retainageService } from "./retainage.service.js";
 import {
   ConflictError,
@@ -9,6 +9,7 @@ import {
   ValidationError,
   ForbiddenError,
 } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 function mapError(err: unknown): never {
   if (err instanceof NotFoundError) {
@@ -71,7 +72,7 @@ export const retainageRouter = router({
       }
     }),
 
-  approveRelease: authedProcedure
+  approveRelease: permissionProcedure(Permissions.RETAINAGE_RELEASE)
     .input(
       z.object({
         id: cuidSchema,
@@ -86,7 +87,7 @@ export const retainageRouter = router({
       }
     }),
 
-  rejectRelease: authedProcedure
+  rejectRelease: permissionProcedure(Permissions.RETAINAGE_RELEASE)
     .input(z.object({ id: cuidSchema, rejectionReason: z.string().min(1).max(500) }))
     .mutation(async ({ ctx, input }) => {
       try {

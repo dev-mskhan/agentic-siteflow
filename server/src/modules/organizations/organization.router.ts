@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, publicProcedure, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, publicProcedure, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { organizationRepository } from "./organization.repository.js";
 import { invitationRepository } from "./invitation.repository.js";
 import { OrganizationService } from "./organization.service.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../common/index.js";
 import { quotaService } from "../auth/quota.service.js";
+import { Permissions } from "../auth/permissions.js";
 
 const orgService = new OrganizationService(organizationRepository, invitationRepository);
 
@@ -62,8 +63,9 @@ export const organizationRouter = router({
 
   /**
    * Update an organization.
+   * Requires ORGANIZATION_UPDATE — org admins only.
    */
-  update: authedProcedure.input(updateOrgSchema).mutation(async ({ input }) => {
+  update: permissionProcedure(Permissions.ORGANIZATION_UPDATE).input(updateOrgSchema).mutation(async ({ input }) => {
     const { id, ...rest } = input;
     try {
       return await orgService.updateOrganization(id, rest);
@@ -74,8 +76,9 @@ export const organizationRouter = router({
 
   /**
    * Invite a user to this organization.
+   * Requires ORGANIZATION_MANAGE_MEMBERS — org admins only.
    */
-  invite: authedProcedure
+  invite: permissionProcedure(Permissions.ORGANIZATION_MANAGE_MEMBERS)
     .input(
       z.object({
         orgId: z.string().min(1),
@@ -98,6 +101,7 @@ export const organizationRouter = router({
 
   /**
    * Accept an invitation by token.
+   * Any authenticated user may accept their own invitation.
    */
   acceptInvite: authedProcedure
     .input(z.object({ token: z.string().min(1), userId: z.string().min(1) }))
@@ -111,8 +115,9 @@ export const organizationRouter = router({
 
   /**
    * Remove a member from an organization.
+   * Requires ORGANIZATION_MANAGE_MEMBERS — org admins only.
    */
-  removeMember: authedProcedure
+  removeMember: permissionProcedure(Permissions.ORGANIZATION_MANAGE_MEMBERS)
     .input(z.object({ orgId: z.string().min(1), userId: z.string().min(1) }))
     .mutation(async ({ input }) => {
       try {

@@ -4,6 +4,8 @@ import { router, authedProcedure } from "../../api/trpc/trpc.js";
 import { userRepository } from "./user.repository.js";
 import { UserService } from "./user.service.js";
 import { ConflictError, NotFoundError } from "../../common/index.js";
+import { checkOwnership } from "../auth/authorization.js";
+import { Permissions } from "../auth/permissions.js";
 
 const userService = new UserService(userRepository);
 
@@ -36,6 +38,7 @@ const updateUserSchema = z.object({
 export const userRouter = router({
   /**
    * Get the currently authenticated user.
+   * 1.3 — unaffected by the ownership check below.
    */
   me: authedProcedure.query(async ({ ctx }) => {
     try {
@@ -47,9 +50,31 @@ export const userRouter = router({
 
   /**
    * Update a user by ID.
+   *
+   * Access control (1.1 / 1.2):
+   *  - Any user may update their own profile (USER_UPDATE_OWN).
+   *  - Org admins holding USER_UPDATE may update any user in their org.
+   *  - All other combinations → FORBIDDEN (prevents horizontal privilege escalation).
    */
-  update: authedProcedure.input(updateUserSchema).mutation(async ({ input }) => {
+  update: authedProcedure.input(updateUserSchema).mutation(async ({ ctx, input }) => {
     const { id, ...rest } = input;
+
+    // 1.2 — ownership check: resourceOwnerId is the target user id
+    const allowed = checkOwnership(
+      ctx.user!.id,
+      id,
+      Permissions.USER_UPDATE,
+      Permissions.USER_UPDATE_OWN,
+      ctx.user!.role,
+    );
+
+    if (!allowed) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have permission to update this user",
+      });
+    }
+
     try {
       return await userService.updateUser(id, rest);
     } catch (err) {

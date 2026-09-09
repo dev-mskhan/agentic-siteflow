@@ -3,6 +3,7 @@ import type { OrgRole } from "@prisma/client";
 import { REQUEST_ID_HEADER } from "../../middleware/index.js";
 import { jwtHelper } from "../../infrastructure/jwt/jwt.js";
 import { db } from "../../infrastructure/database/client.js";
+import { getAccessTokenCookie } from "../../infrastructure/cookies/auth-cookies.js";
 
 export interface AuthUser {
   id: string;
@@ -49,11 +50,15 @@ export async function createContext({
   let user: AuthUser | null = null;
   let orgId: string | null = null;
 
+  // 9.2 — resolve token from Authorization header first, then cookie fallback
   const authHeader = req.headers["authorization"];
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice(7);
+  const rawToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : getAccessTokenCookie(req);
+
+  if (rawToken) {
     try {
-      const payload = jwtHelper.verify(token);
+      const payload = jwtHelper.verify(rawToken);
 
       // Load role from DB — fast compound PK lookup
       const membership = await db.organizationMember.findUnique({

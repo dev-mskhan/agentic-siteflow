@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { InvoiceStatus, InvoiceType, PaymentMethod } from "@prisma/client";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { invoiceService } from "./invoice.service.js";
 import {
   ConflictError,
@@ -10,6 +10,7 @@ import {
   ValidationError,
   ForbiddenError,
 } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 function mapError(err: unknown): never {
   if (err instanceof NotFoundError) {
@@ -100,7 +101,7 @@ export const invoiceRouter = router({
       }
     }),
 
-  approve: authedProcedure
+  approve: permissionProcedure(Permissions.INVOICE_APPROVE)
     .input(z.object({ id: cuidSchema }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -112,7 +113,7 @@ export const invoiceRouter = router({
 });
 
 export const paymentRouter = router({
-  record: authedProcedure
+  record: permissionProcedure(Permissions.PAYMENT_RECORD)
     .input(recordPaymentSchema)
     .mutation(async ({ ctx, input }) => {
       try {

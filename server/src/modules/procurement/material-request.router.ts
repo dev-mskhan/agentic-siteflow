@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { MaterialRequestPriority, MaterialRequestStatus } from "@prisma/client";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { materialRequestService } from "./material-request.service.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import {
@@ -10,6 +10,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 function mapError(err: unknown): never {
   if (err instanceof NotFoundError) {
@@ -115,7 +116,7 @@ export const materialRequestRouter = router({
       }
     }),
 
-  approve: authedProcedure
+  approve: permissionProcedure(Permissions.MATERIAL_REQUEST_APPROVE)
     .input(z.object({ id: cuidSchema }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -129,7 +130,7 @@ export const materialRequestRouter = router({
       }
     }),
 
-  reject: authedProcedure
+  reject: permissionProcedure(Permissions.MATERIAL_REQUEST_APPROVE)
     .input(z.object({ id: cuidSchema, reason: z.string().min(1).max(1000) }))
     .mutation(async ({ ctx, input }) => {
       try {

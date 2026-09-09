@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { projectRepository } from "./project.repository.js";
 import { projectMemberRepository } from "./project-member.repository.js";
 import { projectSettingsRepository } from "./project-settings.repository.js";
@@ -9,6 +9,7 @@ import { ProjectService } from "./project.service.js";
 import { auditService } from "../audit/audit.router.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 export const projectService = new ProjectService(
   projectRepository,
@@ -131,8 +132,9 @@ const updatePhaseSchema = z.object({
 export const projectRouter = router({
   /**
    * Create a new project.
+   * Requires PROJECT_CREATE — org admins only.
    */
-  create: authedProcedure.input(createProjectSchema).mutation(async ({ input, ctx }) => {
+  create: permissionProcedure(Permissions.PROJECT_CREATE).input(createProjectSchema).mutation(async ({ input, ctx }) => {
     try {
       const orgId = ctx.user!.orgId;
       const userId = ctx.user!.id;
@@ -207,8 +209,9 @@ export const projectRouter = router({
 
   /**
    * Add a member to a project.
+   * Requires PROJECT_MANAGE_MEMBERS — org admins only.
    */
-  addMember: authedProcedure.input(projectMemberSchema).mutation(async ({ input, ctx }) => {
+  addMember: permissionProcedure(Permissions.PROJECT_MANAGE_MEMBERS).input(projectMemberSchema).mutation(async ({ input, ctx }) => {
     try {
       return await projectService.addMember(ctx.user!.orgId, input.projectId, {
         userId: input.userId,
@@ -222,8 +225,9 @@ export const projectRouter = router({
 
   /**
    * Remove a member from a project.
+   * Requires PROJECT_MANAGE_MEMBERS — org admins only.
    */
-  removeMember: authedProcedure
+  removeMember: permissionProcedure(Permissions.PROJECT_MANAGE_MEMBERS)
     .input(z.object({ projectId: z.string().min(1), userId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
       try {
@@ -249,8 +253,9 @@ export const projectRouter = router({
 
   /**
    * Update a project member's role.
+   * Requires PROJECT_MANAGE_MEMBERS — org admins only.
    */
-  updateMemberRole: authedProcedure
+  updateMemberRole: permissionProcedure(Permissions.PROJECT_MANAGE_MEMBERS)
     .input(
       z.object({
         projectId: z.string().min(1),
@@ -294,8 +299,9 @@ export const projectRouter = router({
 
   /**
    * Update project settings.
+   * Requires PROJECT_UPDATE — org admins only.
    */
-  updateSettings: authedProcedure
+  updateSettings: permissionProcedure(Permissions.PROJECT_UPDATE)
     .input(z.object({ projectId: z.string().min(1) }).merge(updateSettingsSchema))
     .mutation(async ({ input, ctx }) => {
       const { projectId, ...rest } = input;
@@ -358,8 +364,9 @@ export const projectRouter = router({
 
   /**
    * Delete a project phase.
+   * Requires PROJECT_UPDATE — org admins only.
    */
-  deletePhase: authedProcedure
+  deletePhase: permissionProcedure(Permissions.PROJECT_UPDATE)
     .input(z.object({ projectId: z.string().min(1), phaseId: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
       try {

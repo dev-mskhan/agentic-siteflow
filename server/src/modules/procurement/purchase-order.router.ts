@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { PurchaseOrderStatus } from "@prisma/client";
-import { router, authedProcedure } from "../../api/trpc/trpc.js";
+import { router, authedProcedure, permissionProcedure } from "../../api/trpc/trpc.js";
 import { purchaseOrderService } from "./purchase-order.service.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import {
@@ -10,6 +10,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "../../common/index.js";
+import { Permissions } from "../auth/permissions.js";
 
 function mapError(err: unknown): never {
   if (err instanceof NotFoundError) {
@@ -101,7 +102,7 @@ export const purchaseOrderRouter = router({
       }
     }),
 
-  issue: authedProcedure
+  issue: permissionProcedure(Permissions.PURCHASE_ORDER_APPROVE)
     .input(z.object({ id: cuidSchema }))
     .mutation(async ({ ctx, input }) => {
       try {

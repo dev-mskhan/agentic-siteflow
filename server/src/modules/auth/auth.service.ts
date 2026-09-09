@@ -1,4 +1,5 @@
 import { hash, verify as argon2Verify } from "@node-rs/argon2";
+import { createHash, randomBytes } from "crypto";
 import { db } from "../../infrastructure/database/client.js";
 import { ConflictError, UnauthorizedError, ValidationError } from "../../common/index.js";
 import type { JwtHelper } from "../../infrastructure/jwt/jwt.js";
@@ -8,6 +9,19 @@ import type { SessionRepository } from "./session.repository.js";
 import type { RegisterInput, LoginInput, AuthTokens } from "./auth.types.js";
 import { generateRefreshToken, parseExpiresIn } from "./auth.utils.js";
 import { quotaService } from "./quota.service.js";
+import { emailProvider } from "../../infrastructure/email/index.js";
+import { renderPasswordResetEmail, renderEmailVerificationEmail } from "../../infrastructure/email/templates.js";
+import { env } from "../../config/index.js";
+
+/** SHA-256 hex hash of a raw token string. Raw token is never stored. */
+function hashToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
+
+/** Generate a cryptographically secure URL-safe token (32 bytes = 64 hex chars). */
+function generateSecureToken(): string {
+  return randomBytes(32).toString("hex");
+}
 
 export class AuthService {
   constructor(
@@ -99,6 +113,11 @@ export class AuthService {
       userAgent: context?.userAgent,
     });
 
+    // Send verification email — fire-and-forget, do not block registration on email errors
+    this.sendVerificationEmail(result.user.id).catch(() => {
+      // Silently ignore email send failures at registration time
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -137,6 +156,13 @@ export class AuthService {
     const valid = await argon2Verify(userWithHash.passwordHash, input.password);
     if (!valid) {
       throw new UnauthorizedError(GENERIC_ERROR);
+    }
+
+    // Block unverified users — they must verify their email before logging in
+    if (!userWithHash.emailVerified) {
+      throw new UnauthorizedError(
+        "Email address not verified. Check your inbox or request a new verification email.",
+      );
     }
 
     // Find the user's primary organization (first membership)
@@ -237,5 +263,155 @@ export class AuthService {
       await this.sessionRepo.revoke(session.id);
     }
     // Idempotent — no error if already revoked or not found
+  }
+
+  // ─── Password Reset ──────────────────────────────────────────────────────────
+
+  /**
+   * Initiates a password reset flow.
+   *
+   * Always returns void regardless of whether the email exists — prevents
+   * email enumeration attacks. The raw token is sent to the user; only its
+   * SHA-256 hash is stored in the database.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.userRepo.findByEmail(normalizedEmail);
+
+    // Silently return if user not found — no information leak
+    if (!user) return;
+
+    // Invalidate any existing unused tokens for this user
+    await db.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const rawToken = generateSecureToken();
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.passwordResetToken.create({
+      data: { userId: user.id, tokenHash, expiresAt },
+    });
+
+    const resetUrl = `${env.APP_URL}/reset-password?token=${rawToken}`;
+    const rendered = renderPasswordResetEmail(user.firstName, resetUrl);
+
+    await emailProvider().send({
+      to: user.email,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+    });
+  }
+
+  /**
+   * Completes a password reset using the raw token sent to the user.
+   *
+   * On success:
+   *  - Marks the token as used (single-use enforcement)
+   *  - Updates the user's password hash
+   *  - Revokes all active sessions (forces re-login on all devices)
+   */
+  async resetPassword(rawToken: string, newPassword: string): Promise<void> {
+    if (newPassword.length < 8) {
+      throw new ValidationError("Password must be at least 8 characters");
+    }
+
+    const tokenHash = hashToken(rawToken);
+    const record = await db.passwordResetToken.findUnique({ where: { tokenHash } });
+
+    if (!record || record.usedAt !== null || record.expiresAt < new Date()) {
+      throw new UnauthorizedError("Invalid or expired password reset token");
+    }
+
+    const newPasswordHash = await hash(newPassword);
+
+    await db.$transaction([
+      // Mark token as used
+      db.passwordResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+      // Update password
+      db.user.update({
+        where: { id: record.userId },
+        data: { passwordHash: newPasswordHash },
+      }),
+      // Revoke all sessions — user must log in again on all devices
+      db.session.updateMany({
+        where: { userId: record.userId, isRevoked: false },
+        data: { isRevoked: true },
+      }),
+    ]);
+  }
+
+  // ─── Email Verification ──────────────────────────────────────────────────────
+
+  /**
+   * Sends a verification email to a user.
+   *
+   * Invalidates any existing unused verification tokens first to ensure only
+   * the most recent link is valid. Raw token goes to the user; only the hash
+   * is stored.
+   */
+  async sendVerificationEmail(userId: string): Promise<void> {
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+
+    // Already verified — nothing to do
+    if (user.emailVerified) return;
+
+    // Invalidate prior unused tokens
+    await db.emailVerificationToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const rawToken = generateSecureToken();
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await db.emailVerificationToken.create({
+      data: { userId, tokenHash, expiresAt },
+    });
+
+    const verifyUrl = `${env.APP_URL}/verify-email?token=${rawToken}`;
+    const rendered = renderEmailVerificationEmail(user.firstName, verifyUrl);
+
+    await emailProvider().send({
+      to: user.email,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+    });
+  }
+
+  /**
+   * Verifies a user's email address using the raw token sent to them.
+   *
+   * On success:
+   *  - Marks the token as used
+   *  - Sets emailVerified = true on the user record
+   */
+  async verifyEmail(rawToken: string): Promise<void> {
+    const tokenHash = hashToken(rawToken);
+    const record = await db.emailVerificationToken.findUnique({ where: { tokenHash } });
+
+    if (!record || record.usedAt !== null || record.expiresAt < new Date()) {
+      throw new UnauthorizedError("Invalid or expired verification token");
+    }
+
+    await db.$transaction([
+      db.emailVerificationToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+      db.user.update({
+        where: { id: record.userId },
+        data: { emailVerified: true },
+      }),
+    ]);
   }
 }
