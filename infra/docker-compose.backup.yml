@@ -1,0 +1,24 @@
+# docker-compose override for on-demand database backup
+# Usage: docker compose -f docker-compose.yml -f infra/docker-compose.backup.yml run --rm pg-backup
+services:
+  pg-backup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${PGUSER:-siteflow}
+      PGPASSWORD: ${PGPASSWORD:-siteflow}
+      PGDATABASE: ${PGDATABASE:-siteflow}
+      BACKUP_BUCKET: ${BACKUP_BUCKET}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-}
+    volumes:
+      - ./infra/scripts/backup-postgres.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
