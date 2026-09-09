@@ -277,7 +277,7 @@ export class DocumentService {
   async listDocuments(
     orgId: string,
     filters?: DocumentFilters,
-  ): Promise<{ items: DocumentWithDetails[]; total: number }> {
+  ): Promise<{ items: DocumentWithDetails[]; total: number | null }> {
     return this.repo.list(orgId, filters);
   }
 

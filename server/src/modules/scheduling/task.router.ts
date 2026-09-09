@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { TaskPriority, TaskStatus } from "@prisma/client";
+import { DependencyType, TaskPriority, TaskStatus } from "@prisma/client";
 import { router, authedProcedure } from "../../api/trpc/trpc.js";
 import { taskService } from "./task.service.js";
 import { taskHistoryRepository } from "./task-history.repository.js";
@@ -78,7 +78,7 @@ const listTaskSchema = z.object({
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
 });
-const dependencyTypeSchema = z.enum(["FS", "SS", "FF", "SF"]);
+const dependencyTypeSchema = z.nativeEnum(DependencyType);
 const dependencyIdsSchema = z.object({
   projectId: projectIdSchema,
   predecessorId: taskIdSchema,

@@ -115,6 +115,11 @@ export class CostTransactionRepository {
     });
   }
 
+  /**
+   * Voids a cost transaction. Both `id` and `orgId` are included in the WHERE clause
+   * so the DB itself enforces tenant scope — if the transaction belongs to a different
+   * org, Prisma throws a not-found error rather than silently mutating cross-tenant data.
+   */
   async voidTransaction(
     orgId: string,
     id: string,
@@ -122,7 +127,7 @@ export class CostTransactionRepository {
     voidReason: string,
   ): Promise<CostTransaction> {
     return db.costTransaction.update({
-      where: { id },
+      where: { id, orgId },
       data: {
         status: CostTransactionStatus.VOID,
         voidedById,
@@ -131,32 +136,80 @@ export class CostTransactionRepository {
     });
   }
 
-  async aggregateActualCosts(
+  /**
+   * Groups POSTED transactions by `transactionType` and sums `amount` at the DB level.
+   * Returns one row per type that has at least one posted transaction.
+   */
+  async groupByType(
     orgId: string,
     projectId: string,
-  ): Promise<Array<{ costCodeId: string; amount: Prisma.Decimal }>> {
-    const records = await db.costTransaction.findMany({
+  ) {
+    return db.costTransaction.groupBy({
+      by: ["transactionType"],
       where: {
         orgId,
         projectId,
         status: CostTransactionStatus.POSTED,
       },
-      select: {
-        costCodeId: true,
-        amount: true,
+      _sum: { amount: true },
+    });
+  }
+
+  /**
+   * Groups POSTED transactions by `costCodeId` and sums `amount` at the DB level.
+   * Also fetches the costCode relation so the caller gets `code` and `name` without
+   * a second round-trip.
+   */
+  async groupByCostCode(
+    orgId: string,
+    projectId: string,
+  ): Promise<
+    Array<{
+      costCodeId: string;
+      totalAmount: Prisma.Decimal;
+      costCode: { code: string; name: string };
+    }>
+  > {
+    const rows = await db.costTransaction.groupBy({
+      by: ["costCodeId"],
+      where: {
+        orgId,
+        projectId,
+        status: CostTransactionStatus.POSTED,
       },
+      _sum: { amount: true },
     });
 
-    const map = new Map<string, Prisma.Decimal>();
-    for (const r of records) {
-      const curr = map.get(r.costCodeId) ?? new Prisma.Decimal(0);
-      map.set(r.costCodeId, curr.add(r.amount));
-    }
+    if (rows.length === 0) return [];
 
-    return Array.from(map.entries()).map(([costCodeId, amount]) => ({
-      costCodeId,
-      amount,
-    }));
+    // Fetch costCode details in a single batched query
+    const costCodeIds = rows.map((r) => r.costCodeId);
+    const costCodes = await db.costCode.findMany({
+      where: { id: { in: costCodeIds } },
+      select: { id: true, code: true, name: true },
+    });
+    const costCodeById = new Map(costCodes.map((c) => [c.id, c]));
+
+    return rows.map((r) => {
+      const cc = costCodeById.get(r.costCodeId);
+      return {
+        costCodeId: r.costCodeId,
+        totalAmount: r._sum.amount ?? new Prisma.Decimal(0),
+        costCode: {
+          code: cc?.code ?? "UNKNOWN",
+          name: cc?.name ?? "Unknown Code",
+        },
+      };
+    });
+  }
+
+  /** @deprecated Use groupByType + groupByCostCode for DB-level aggregation. */
+  async aggregateActualCosts(
+    orgId: string,
+    projectId: string,
+  ): Promise<Array<{ costCodeId: string; amount: Prisma.Decimal }>> {
+    const rows = await this.groupByCostCode(orgId, projectId);
+    return rows.map((r) => ({ costCodeId: r.costCodeId, amount: r.totalAmount }));
   }
 }
 

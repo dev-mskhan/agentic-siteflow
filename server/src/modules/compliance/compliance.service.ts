@@ -212,10 +212,10 @@ export class ComplianceService {
   async listComplianceRecords(
     orgId: string,
     filters?: ComplianceFilters,
-  ): Promise<{ items: ComplianceRecordWithDetails[]; total: number }> {
+  ): Promise<{ items: ComplianceRecordWithDetails[]; total: number | null }> {
     // Only cache unfiltered list queries
     if (!filters || Object.keys(filters).length === 0) {
-      const cached = await cacheGet<{ items: ComplianceRecordWithDetails[]; total: number }>(
+      const cached = await cacheGet<{ items: ComplianceRecordWithDetails[]; total: number | null }>(
         cacheKey.complianceList(orgId),
       );
       if (cached) return cached;

@@ -58,6 +58,8 @@ export class SovRepository {
       });
 
       return sov;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
   }
 
@@ -133,6 +135,8 @@ export class SovRepository {
         where: { id },
         data: { status: SovStatus.ACTIVE },
       });
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
   }
 }

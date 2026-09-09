@@ -14,6 +14,7 @@ export class CommittedCostRepository {
   }
 
   async findOrgProjects(orgId: string) {
+    // TODO: cursor pagination if org has >200 projects (G15)
     return db.project.findMany({
       where: { orgId, status: { not: "CANCELLED" } },
       select: {
@@ -22,11 +23,13 @@ export class CommittedCostRepository {
         currency: true,
         budget: true,
       },
+      take: 200,
       orderBy: { name: "asc" },
     });
   }
 
   async getCommittedPurchaseOrders(orgId: string, projectId: string) {
+    // Capped at 500 — projects with >500 active POs should migrate to DB-level aggregation (G15)
     return db.purchaseOrder.findMany({
       where: {
         orgId,
@@ -45,10 +48,13 @@ export class CommittedCostRepository {
           },
         },
       },
+      take: 500,
+      orderBy: { createdAt: "desc" },
     });
   }
 
   async getCommittedSubcontractorContracts(orgId: string, projectId: string) {
+    // Capped at 500 — projects with >500 active subcontractor contracts need DB-level aggregation (G15)
     return db.subcontractorContract.findMany({
       where: {
         orgId,
@@ -60,6 +66,8 @@ export class CommittedCostRepository {
         contractValue: true,
         costCodeId: true,
       },
+      take: 500,
+      orderBy: { createdAt: "desc" },
     });
   }
 

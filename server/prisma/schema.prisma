@@ -317,6 +317,19 @@ enum NotificationType {
   SYSTEM
 }
 
+enum PhaseStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+}
+
+enum DependencyType {
+  FS
+  SS
+  FF
+  SF
+}
+
 // ─── Commercial Enums ─────────────────────────────────────────────────────────
 
 enum CostTransactionType {
@@ -583,6 +596,8 @@ model Session {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
+  // Partial index on (user_id, is_revoked) WHERE is_revoked = false is in migration SQL
+  // Prisma does not support partial indexes in schema.prisma
   @@map("sessions")
 }
 
@@ -597,6 +612,7 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("password_reset_tokens")
 }
 
@@ -611,6 +627,7 @@ model EmailVerificationToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("email_verification_tokens")
 }
 
@@ -648,6 +665,7 @@ model AuditLog {
   @@index([orgId])
   @@index([userId])
   @@index([entity, entityId])
+  @@index([orgId, createdAt])
   @@map("audit_logs")
 }
 
@@ -882,7 +900,7 @@ model TaskDependency {
   orgId         String
   predecessorId String
   successorId   String
-  type          String   @default("FS")
+  type          DependencyType @default(FS)
   lagDays       Int      @default(0)
   createdAt     DateTime @default(now())
 
@@ -910,9 +928,9 @@ model ProjectPhase {
   plannedEndDate   DateTime?
   actualStartDate  DateTime?
   actualEndDate    DateTime?
-  status           String    @default("ACTIVE")
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  status           PhaseStatus @default(ACTIVE)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -1574,6 +1592,7 @@ model InventoryTransaction {
   @@index([orgId])
   @@index([type])
   @@index([createdAt])
+  @@index([orgId, projectId, materialId])
   @@map("inventory_transactions")
 }
 

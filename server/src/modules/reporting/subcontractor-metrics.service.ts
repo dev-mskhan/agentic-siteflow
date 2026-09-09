@@ -24,6 +24,7 @@ export class SubcontractorMetricsService {
     const [contracts, subcontractors, tasks, arPayments, retainageReleases] = await Promise.all([
       db.subcontractorContract.findMany({
         where: { projectId, orgId },
+        take: 500, // G15: cap unbounded query; projects with >500 contracts need DB-level aggregation
         select: {
           id: true,
           status: true,
@@ -33,6 +34,7 @@ export class SubcontractorMetricsService {
       }),
       db.subcontractor.findMany({
         where: { orgId },
+        take: 500, // G15: cap unbounded query; large orgs should use a paginated lookup
         select: {
           id: true,
           companyName: true,
@@ -45,6 +47,7 @@ export class SubcontractorMetricsService {
       }),
       db.task.findMany({
         where: { projectId, orgId, subcontractorId: { not: null } },
+        take: 500, // G15: cap unbounded query
         select: {
           id: true,
           status: true,
@@ -64,10 +67,12 @@ export class SubcontractorMetricsService {
           },
           status: "COMPLETED",
         },
+        take: 500, // G15: cap unbounded query
         select: { amount: true },
       }),
       db.retainageRelease.findMany({
         where: { projectId, orgId, status: "RELEASED" },
+        take: 500, // G15: cap unbounded query
         select: { amountToRelease: true },
       }),
     ]);

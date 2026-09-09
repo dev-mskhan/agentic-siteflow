@@ -4,12 +4,13 @@ import type {
   TaskHistory,
   TaskPriority,
   TaskStatus,
+  DependencyType,
 } from "@prisma/client";
 
 export type TaskRecord = Task;
 export type TaskHistoryRecord = TaskHistory;
 export type TaskDependencyRecord = TaskDependency;
-export type DependencyType = "FS" | "SS" | "FF" | "SF";
+export type { DependencyType };
 
 export interface CreateTaskDependencyInput {
   projectId: string;

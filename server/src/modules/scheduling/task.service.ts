@@ -6,7 +6,7 @@ import { db } from "../../infrastructure/database/client.js";
 import { NotFoundError, ValidationError } from "../../common/index.js";
 import { ConflictError } from "../../common/index.js";
 import type { Prisma, Task, TaskStatus } from "@prisma/client";
-import { taskRepository } from "./task.repository.js";
+import { DependencyType } from "@prisma/client";import { taskRepository } from "./task.repository.js";
 import type { TaskRepository } from "./task.repository.js";
 import { taskHistoryRepository } from "./task-history.repository.js";
 import type { TaskHistoryRepository } from "./task-history.repository.js";
@@ -17,7 +17,6 @@ import {
 import {
   type CreateTaskDependencyInput,
   type CreateTaskInput,
-  type DependencyType,
   type TaskFilters,
   type UpdateTaskInput,
 } from "./task.types.js";
@@ -184,7 +183,7 @@ export class TaskService {
 
     const updated = await db.$transaction(async (tx: Prisma.TransactionClient) => {
       const next = await tx.task.update({
-        where: { id: taskId },
+        where: { id: taskId, orgId },
         data: input,
       });
 
@@ -295,7 +294,7 @@ export class TaskService {
 
     const updated = await db.$transaction(async (tx: Prisma.TransactionClient) => {
       const next = await tx.task.update({
-        where: { id: taskId },
+        where: { id: taskId, orgId },
         data: updateData,
       });
       for (const entry of history) {
@@ -366,7 +365,7 @@ export class TaskService {
       };
       const updated = await db.$transaction(async (tx: Prisma.TransactionClient) => {
         const next = await tx.task.update({
-          where: { id: taskId },
+          where: { id: taskId, orgId },
           data: updateData,
         });
         for (const entry of [
@@ -493,7 +492,7 @@ export class TaskService {
     };
 
     const updated = await db.$transaction(async (tx: Prisma.TransactionClient) => {
-      const next = await tx.task.update({ where: { id: taskId }, data });
+      const next = await tx.task.update({ where: { id: taskId, orgId }, data });
       for (const field of changedFields) {
         await this.dateChanges.record(
           {
@@ -580,8 +579,8 @@ export class TaskService {
     return updated;
   }
 
-  private validateDependencyOptions(type: DependencyType = "FS", lagDays = 0): void {
-    if (!["FS", "SS", "FF", "SF"].includes(type)) {
+  private validateDependencyOptions(type: DependencyType = DependencyType.FS, lagDays = 0): void {
+    if (!Object.values(DependencyType).includes(type)) {
       throw new ValidationError("Unsupported dependency type");
     }
     if (!Number.isInteger(lagDays)) {
@@ -632,7 +631,7 @@ export class TaskService {
     predecessorId: string,
     successorId: string,
     userId: string,
-    type: DependencyType = "FS",
+    type: DependencyType = DependencyType.FS,
     lagDays = 0,
   ) {
     if (predecessorId === successorId) {

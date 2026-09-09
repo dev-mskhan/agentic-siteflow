@@ -56,6 +56,7 @@ export interface QualityFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  withCount?: boolean;
 }
 
 export interface DeficiencyFilters {
@@ -68,6 +69,7 @@ export interface DeficiencyFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  withCount?: boolean;
 }
 
 export const QUALITY_AUDIT_ACTIONS = {

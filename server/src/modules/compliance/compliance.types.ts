@@ -36,6 +36,7 @@ export interface ComplianceFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  withCount?: boolean;
 }
 
 export const COMPLIANCE_AUDIT_ACTIONS = {

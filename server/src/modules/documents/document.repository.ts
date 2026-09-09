@@ -196,7 +196,7 @@ export class DocumentRepository {
   async list(
     orgId: string,
     filters?: DocumentFilters,
-  ): Promise<{ items: DocumentWithDetails[]; total: number }> {
+  ): Promise<{ items: DocumentWithDetails[]; total: number | null }> {
     const where: Prisma.DocumentWhereInput = {
       orgId,
       ...(filters?.projectId ? { projectId: filters.projectId } : {}),
@@ -225,7 +225,7 @@ export class DocumentRepository {
         take: filters?.limit ?? 50,
         skip: filters?.offset ?? 0,
       }),
-      db.document.count({ where }),
+      filters?.withCount ? db.document.count({ where }) : Promise.resolve(null),
     ]);
 
     return { items, total };

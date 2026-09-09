@@ -181,6 +181,8 @@ export class PaymentApplicationRepository {
       });
 
       return app;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
   }
 

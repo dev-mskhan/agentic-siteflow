@@ -59,6 +59,7 @@ export interface DocumentFilters {
   tag?: string;
   limit?: number;
   offset?: number;
+  withCount?: boolean;
 }
 
 export const DOCUMENT_AUDIT_ACTIONS = {

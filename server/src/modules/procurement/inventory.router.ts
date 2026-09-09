@@ -54,6 +54,7 @@ const listTransactionsSchema = z.object({
   referenceType: z.string().max(100).optional(),
   limit: z.number().int().min(1).max(100).default(50).optional(),
   offset: z.number().int().min(0).default(0).optional(),
+  withCount: z.boolean().default(false).optional(),
 });
 
 const recordTaskConsumptionSchema = z.object({

@@ -79,7 +79,7 @@ export class NotificationService {
     userId: string,
     orgId: string,
     filters?: NotificationFilters,
-  ): Promise<{ items: Notification[]; total: number }> {
+  ): Promise<{ items: Notification[]; total: number | null }> {
     return notificationRepository.findByUser(userId, orgId, filters);
   }
 

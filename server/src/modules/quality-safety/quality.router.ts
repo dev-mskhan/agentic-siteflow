@@ -91,6 +91,7 @@ export const listInspectionsSchema = z.object({
   search: z.string().max(100).optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
+  withCount: z.boolean().default(false).optional(),
 });
 
 export const listDeficienciesSchema = z.object({
@@ -103,6 +104,7 @@ export const listDeficienciesSchema = z.object({
   search: z.string().max(100).optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
+  withCount: z.boolean().default(false).optional(),
 });
 
 export const qualityRouter = router({

@@ -70,6 +70,8 @@ export class ChangeOrderRepository {
       });
 
       return changeOrder;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
   }
 

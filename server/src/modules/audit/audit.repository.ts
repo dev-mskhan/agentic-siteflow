@@ -53,6 +53,28 @@ export class AuditRepository {
       skip: offset,
     });
   }
+
+  async findByEntityCursor(
+    entity: string,
+    entityId: string,
+    options: { limit?: number; cursor?: string; orgId?: string },
+  ): Promise<{ items: AuditLog[]; nextCursor: string | null }> {
+    const { limit = 50, cursor, orgId } = options;
+    const where = { entity, entityId, ...(orgId ? { orgId } : {}) };
+
+    const items = await db.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+
+    const hasNextPage = items.length > limit;
+    const pageItems = hasNextPage ? items.slice(0, limit) : items;
+    const nextCursor = hasNextPage ? (pageItems[pageItems.length - 1]?.id ?? null) : null;
+
+    return { items: pageItems, nextCursor };
+  }
 }
 
 // Singleton instance

@@ -1,4 +1,4 @@
-import { CostTransactionStatus, PurchaseOrderStatus, SubcontractorContractStatus } from "@prisma/client";
+import { CostTransactionStatus, Prisma, PurchaseOrderStatus, SubcontractorContractStatus } from "@prisma/client";
 import { db } from "../../infrastructure/database/client.js";
 
 export class FinancialVarianceRepository {
@@ -57,23 +57,32 @@ export class FinancialVarianceRepository {
   }
 
   async getProjectActualCosts(orgId: string, projectId: string) {
-    return db.costTransaction.findMany({
+    // Aggregate at DB level instead of pulling all rows — G15 fix
+    const grouped = await db.costTransaction.groupBy({
+      by: ["costCodeId"],
       where: {
         orgId,
         projectId,
         status: CostTransactionStatus.POSTED,
       },
-      select: {
-        costCodeId: true,
+      _sum: {
         amount: true,
       },
     });
+    // Return in the same shape callers expect: { costCodeId, amount }
+    return grouped.map((row) => ({
+      costCodeId: row.costCodeId,
+      amount: row._sum.amount ?? new Prisma.Decimal(0),
+    }));
   }
 
   async listOrgProjects(orgId: string) {
+    // TODO: If org has >200 projects, migrate to cursor-based pagination
     return db.project.findMany({
       where: { orgId },
       select: { id: true, name: true, currency: true, plannedStartDate: true, plannedEndDate: true },
+      take: 200,
+      orderBy: { name: "asc" },
     });
   }
 }

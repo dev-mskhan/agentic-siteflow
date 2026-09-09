@@ -90,6 +90,7 @@ export const listDocumentsSchema = z.object({
   tag: z.string().max(50).optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
+  withCount: z.boolean().default(false).optional(),
 });
 
 export const documentRouter = router({

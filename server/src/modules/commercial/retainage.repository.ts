@@ -78,26 +78,34 @@ export class RetainageRepository {
     input: RequestRetainageReleaseInput,
     totalWithheld: number,
   ): Promise<RetainageRelease> {
-    const releaseNumber = await this.getNextReleaseNumber(input.projectId);
     const amt = new Prisma.Decimal(input.amountToRelease);
     const withheld = new Prisma.Decimal(totalWithheld);
     const remaining = withheld.sub(amt);
 
-    return db.retainageRelease.create({
-      data: {
-        orgId,
-        projectId: input.projectId,
-        subcontractorId: input.subcontractorId,
-        contractId: input.contractId,
-        releaseNumber,
-        totalWithheld: withheld,
-        amountToRelease: amt,
-        remainingRetainage: remaining,
-        status: RetainageReleaseStatus.REQUESTED,
-        notes: input.notes,
-        requestedById,
+    // Wrap release-number generation and insert in a single transaction with
+    // RepeatableRead so concurrent requests cannot observe a stale count and
+    // produce duplicate release numbers.
+    return db.$transaction(
+      async (tx) => {
+        const releaseNumber = await this.getNextReleaseNumber(input.projectId, tx);
+        return tx.retainageRelease.create({
+          data: {
+            orgId,
+            projectId: input.projectId,
+            subcontractorId: input.subcontractorId,
+            contractId: input.contractId,
+            releaseNumber,
+            totalWithheld: withheld,
+            amountToRelease: amt,
+            remainingRetainage: remaining,
+            status: RetainageReleaseStatus.REQUESTED,
+            notes: input.notes,
+            requestedById,
+          },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   async findById(orgId: string, id: string): Promise<RetainageReleaseDetail | null> {

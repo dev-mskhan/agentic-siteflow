@@ -1,0 +1,43 @@
+name: Weekly Restore Drill
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'  # Sunday 04:00 UTC
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  restore-test:
+    name: Verify Backup is Restorable
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: siteflow
+          POSTGRES_USER: siteflow
+          POSTGRES_PASSWORD: siteflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get install -y postgresql-client gpg
+
+      - name: Run restore drill
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: siteflow
+          PGPASSWORD: siteflow
+          BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT_URL }}
+        run: bash infra/scripts/restore-postgres.sh

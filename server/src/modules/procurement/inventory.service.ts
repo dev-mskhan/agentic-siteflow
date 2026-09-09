@@ -184,7 +184,7 @@ export class InventoryService {
     orgId: string,
     projectId: string,
     filters?: InventoryFilters,
-  ): Promise<{ transactions: InventoryTransaction[]; total: number }> {
+  ): Promise<{ transactions: InventoryTransaction[]; total: number | null }> {
     const project = await this.repo.findProject(orgId, projectId);
     if (!project) {
       throw new NotFoundError("Project not found");

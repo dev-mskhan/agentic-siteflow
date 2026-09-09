@@ -20,6 +20,7 @@ export interface InventoryFilters {
   referenceType?: string;
   limit?: number;
   offset?: number;
+  withCount?: boolean;
 }
 
 export interface MaterialStockSummary {

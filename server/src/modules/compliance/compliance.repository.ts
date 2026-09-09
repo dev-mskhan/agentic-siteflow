@@ -116,7 +116,7 @@ export class ComplianceRepository {
   async list(
     orgId: string,
     filters?: ComplianceFilters,
-  ): Promise<{ items: ComplianceRecordWithDetails[]; total: number }> {
+  ): Promise<{ items: ComplianceRecordWithDetails[]; total: number | null }> {
     const where: Prisma.ComplianceRecordWhereInput = { orgId };
 
     if (filters?.projectId) where.projectId = filters.projectId;
@@ -150,7 +150,7 @@ export class ComplianceRepository {
         take: filters?.limit ?? 50,
         skip: filters?.offset ?? 0,
       }),
-      this.prisma.complianceRecord.count({ where }),
+      filters?.withCount ? this.prisma.complianceRecord.count({ where }) : Promise.resolve(null),
     ]);
 
     return { items, total };

@@ -281,18 +281,24 @@ export class AuthService {
     // Silently return if user not found — no information leak
     if (!user) return;
 
-    // Invalidate any existing unused tokens for this user
-    await db.passwordResetToken.updateMany({
-      where: { userId: user.id, usedAt: null },
-      data: { usedAt: new Date() },
-    });
-
+    // Generate token values before the transaction so rawToken is available
+    // for the email URL after the transaction commits
     const rawToken = generateSecureToken();
     const tokenHash = hashToken(rawToken);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await db.passwordResetToken.create({
-      data: { userId: user.id, tokenHash, expiresAt },
+    // Atomic: invalidate any existing unused tokens AND create the new one in
+    // a single transaction — a crash between these two writes can no longer
+    // leave the user in a state where all tokens are invalidated but no new
+    // token exists (G22)
+    await db.$transaction(async (tx) => {
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      await tx.passwordResetToken.create({
+        data: { userId: user.id, tokenHash, expiresAt },
+      });
     });
 
     const resetUrl = `${env.APP_URL}/reset-password?token=${rawToken}`;

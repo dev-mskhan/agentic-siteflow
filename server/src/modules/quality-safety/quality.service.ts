@@ -289,7 +289,7 @@ export class QualityService {
   async listInspections(
     orgId: string,
     filters?: QualityFilters,
-  ): Promise<{ items: QualityInspectionWithDetails[]; total: number }> {
+  ): Promise<{ items: QualityInspectionWithDetails[]; total: number | null }> {
     return this.repo.listInspections(orgId, filters);
   }
 
@@ -304,7 +304,7 @@ export class QualityService {
   async listDeficiencies(
     orgId: string,
     filters?: DeficiencyFilters,
-  ): Promise<{ items: DeficiencyWithDetails[]; total: number }> {
+  ): Promise<{ items: DeficiencyWithDetails[]; total: number | null }> {
     return this.repo.listDeficiencies(orgId, filters);
   }
 }

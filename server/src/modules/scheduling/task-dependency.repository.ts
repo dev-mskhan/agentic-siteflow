@@ -1,4 +1,5 @@
 import type { Prisma, TaskDependency } from "@prisma/client";
+import { DependencyType } from "@prisma/client";
 import { db } from "../../infrastructure/database/client.js";
 import { NotFoundError } from "../../common/index.js";
 import type { CreateTaskDependencyInput } from "./task.types.js";
@@ -13,7 +14,7 @@ export class TaskDependencyRepository {
     return client.taskDependency.create({
       data: {
         ...data,
-        type: data.type ?? "FS",
+        type: data.type ?? DependencyType.FS,
         lagDays: data.lagDays ?? 0,
       },
     });

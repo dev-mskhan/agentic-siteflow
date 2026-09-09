@@ -83,6 +83,7 @@ export class ProjectHealthService {
     const [tasks, issues, rfis, submittals, safetyIncidents, safetyActions] = await Promise.all([
       db.task.findMany({
         where: { projectId, orgId },
+        take: 500, // G15: cap unbounded query; large projects should use DB-level aggregation
         select: {
           status: true,
           progress: true,
@@ -91,6 +92,7 @@ export class ProjectHealthService {
       }),
       db.issue.findMany({
         where: { projectId, orgId },
+        take: 500, // G15: cap unbounded query
         select: {
           status: true,
           dueDate: true,
@@ -100,18 +102,22 @@ export class ProjectHealthService {
       }),
       db.rfi.findMany({
         where: { projectId, orgId },
+        take: 500, // G15: cap unbounded query
         select: { status: true, dueDate: true },
       }),
       db.submittal.findMany({
         where: { projectId, orgId },
+        take: 500, // G15: cap unbounded query
         select: { status: true, dueDate: true },
       }),
       db.safetyIncident.findMany({
         where: { projectId, orgId, status: { not: "CLOSED" } },
+        take: 500, // G15: cap unbounded query
         select: { id: true },
       }),
       db.safetyCorrectiveAction.findMany({
         where: { incident: { projectId, orgId }, isCompleted: false },
+        take: 500, // G15: cap unbounded query
         select: { id: true },
       }),
     ]);

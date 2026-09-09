@@ -122,7 +122,7 @@ export class QualityRepository {
   async listInspections(
     orgId: string,
     filters?: QualityFilters,
-  ): Promise<{ items: QualityInspectionWithDetails[]; total: number }> {
+  ): Promise<{ items: QualityInspectionWithDetails[]; total: number | null }> {
     const where: Prisma.QualityInspectionWhereInput = { orgId };
 
     if (filters?.projectId) where.projectId = filters.projectId;
@@ -146,7 +146,7 @@ export class QualityRepository {
         take: filters?.limit ?? 50,
         skip: filters?.offset ?? 0,
       }),
-      this.prisma.qualityInspection.count({ where }),
+      filters?.withCount ? this.prisma.qualityInspection.count({ where }) : Promise.resolve(null),
     ]);
 
     return { items, total };
@@ -221,7 +221,7 @@ export class QualityRepository {
   async listDeficiencies(
     orgId: string,
     filters?: DeficiencyFilters,
-  ): Promise<{ items: DeficiencyWithDetails[]; total: number }> {
+  ): Promise<{ items: DeficiencyWithDetails[]; total: number | null }> {
     const where: Prisma.DeficiencyWhereInput = { orgId };
 
     if (filters?.projectId) where.projectId = filters.projectId;
@@ -250,7 +250,7 @@ export class QualityRepository {
         take: filters?.limit ?? 50,
         skip: filters?.offset ?? 0,
       }),
-      this.prisma.deficiency.count({ where }),
+      filters?.withCount ? this.prisma.deficiency.count({ where }) : Promise.resolve(null),
     ]);
 
     return { items, total };

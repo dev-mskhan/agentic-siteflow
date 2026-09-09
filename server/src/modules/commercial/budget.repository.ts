@@ -54,6 +54,7 @@ export class BudgetRepository {
   ): Promise<BudgetItem[]> {
     return db.$transaction(async (tx) => {
       const results: BudgetItem[] = [];
+
       for (const item of items) {
         const existing = await tx.budgetItem.findFirst({
           where: { orgId, projectId, costCodeId: item.costCodeId },
@@ -86,6 +87,8 @@ export class BudgetRepository {
         }
       }
       return results;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
   }
 

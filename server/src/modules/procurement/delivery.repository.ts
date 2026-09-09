@@ -173,29 +173,34 @@ export class DeliveryRepository {
     }>,
   ): Promise<DeliveryWithItems> {
     return db.$transaction(async (tx) => {
-      // 1. Update receipt items
-      for (const update of receiptUpdates) {
-        await tx.deliveryReceiptItem.update({
-          where: { id: update.id },
-          data: {
-            quantityReceived: update.quantityReceived,
-            quantityAccepted: update.quantityAccepted,
-            quantityRejected: update.quantityRejected,
-            rejectionReason: update.rejectionReason,
-            notes: update.notes,
-          },
-        });
-
-        // 2. Increment PurchaseOrderItem receivedQuantity
-        if (update.quantityAccepted > 0) {
-          await tx.purchaseOrderItem.update({
-            where: { id: update.poItemId },
+      // 1. Update all receipt items in parallel (was sequential loop — G28 fix)
+      await Promise.all(
+        receiptUpdates.map((update) =>
+          tx.deliveryReceiptItem.update({
+            where: { id: update.id },
             data: {
-              receivedQuantity: { increment: update.quantityAccepted },
+              quantityReceived: update.quantityReceived,
+              quantityAccepted: update.quantityAccepted,
+              quantityRejected: update.quantityRejected,
+              rejectionReason: update.rejectionReason,
+              notes: update.notes,
             },
-          });
-        }
-      }
+          }),
+        ),
+      );
+
+      // 2. Batch PO item quantity updates for accepted items (was serial O(n) — G28 fix)
+      const poUpdates = receiptUpdates.filter((u) => Number(u.quantityAccepted) > 0);
+      await Promise.all(
+        poUpdates.map((u) =>
+          tx.purchaseOrderItem.update({
+            where: { id: u.poItemId },
+            data: {
+              receivedQuantity: { increment: u.quantityAccepted },
+            },
+          }),
+        ),
+      );
 
       // 3. Update Delivery
       const updatedDelivery = await tx.delivery.update({

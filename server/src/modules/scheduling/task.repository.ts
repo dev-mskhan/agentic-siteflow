@@ -39,6 +39,7 @@ export class TaskRepository {
     return db.task.findMany({
       where: { orgId, phaseId },
       orderBy: { createdAt: "desc" },
+      take: 200, // G15: cap unbounded phase task list
     });
   }
 

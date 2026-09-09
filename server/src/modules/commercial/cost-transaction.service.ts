@@ -133,13 +133,11 @@ export class CostTransactionService {
       throw new NotFoundError("Project not found");
     }
 
-    const transactions = await this.costRepo.list(orgId, {
-      projectId,
-      status: CostTransactionStatus.POSTED,
-      limit: 10000,
-    });
+    const [byTypeRows, byCostCodeRows] = await Promise.all([
+      this.costRepo.groupByType(orgId, projectId),
+      this.costRepo.groupByCostCode(orgId, projectId),
+    ]);
 
-    let totalActualCost = 0;
     const byType: Record<CostTransactionType, number> = {
       LABOR: 0,
       MATERIAL: 0,
@@ -148,37 +146,20 @@ export class CostTransactionService {
       OTHER: 0,
     };
 
-    const costCodeMap = new Map<
-      string,
-      { costCode: string; name: string; actualAmount: number }
-    >();
+    let totalActualCost = 0;
 
-    for (const tx of transactions) {
-      const amt = Number(tx.amount);
+    for (const row of byTypeRows) {
+      const amt = Number(row._sum.amount ?? 0);
+      byType[row.transactionType] = amt;
       totalActualCost += amt;
-      byType[tx.transactionType] = (byType[tx.transactionType] || 0) + amt;
-
-      const codeKey = tx.costCodeId;
-      const existing = costCodeMap.get(codeKey);
-      if (existing) {
-        existing.actualAmount += amt;
-      } else {
-        costCodeMap.set(codeKey, {
-          costCode: tx.costCode?.code ?? "UNKNOWN",
-          name: tx.costCode?.name ?? "Unknown Code",
-          actualAmount: amt,
-        });
-      }
     }
 
-    const byCostCode = Array.from(costCodeMap.entries()).map(
-      ([costCodeId, info]) => ({
-        costCodeId,
-        costCode: info.costCode,
-        name: info.name,
-        actualAmount: info.actualAmount,
-      }),
-    );
+    const byCostCode = byCostCodeRows.map((row) => ({
+      costCodeId: row.costCodeId,
+      costCode: row.costCode.code,
+      name: row.costCode.name,
+      actualAmount: Number(row.totalAmount),
+    }));
 
     return {
       projectId,

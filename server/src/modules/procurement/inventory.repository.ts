@@ -79,7 +79,7 @@ export class InventoryRepository {
     orgId: string,
     projectId: string,
     filters?: InventoryFilters,
-  ): Promise<{ transactions: InventoryTransaction[]; total: number }> {
+  ): Promise<{ transactions: InventoryTransaction[]; total: number | null }> {
     const where: Prisma.InventoryTransactionWhereInput = {
       orgId,
       projectId,
@@ -95,31 +95,27 @@ export class InventoryRepository {
         take: filters?.limit ?? 50,
         skip: filters?.offset ?? 0,
       }),
-      db.inventoryTransaction.count({ where }),
+      filters?.withCount ? db.inventoryTransaction.count({ where }) : Promise.resolve(null),
     ]);
 
     return { transactions, total };
   }
 
   async calculateStock(orgId: string, projectId: string, materialId: string): Promise<number> {
-    const transactions = await db.inventoryTransaction.findMany({
-      where: {
-        orgId,
-        projectId,
-        materialId,
-      },
-      select: {
-        type: true,
-        quantity: true,
-      },
+    // Aggregate at DB level — G15 fix (was unbounded findMany + in-memory loop)
+    const rows = await db.inventoryTransaction.groupBy({
+      by: ["type"],
+      where: { orgId, projectId, materialId },
+      _sum: { quantity: true },
     });
 
     let stock = new Prisma.Decimal(0);
-    for (const tx of transactions) {
-      const qty = new Prisma.Decimal(tx.quantity.toString());
-      switch (tx.type) {
+    for (const row of rows) {
+      const qty = row._sum.quantity ?? new Prisma.Decimal(0);
+      switch (row.type) {
         case "RECEIPT":
         case "TRANSFER_IN":
+        case "ADJUSTMENT":
           stock = stock.plus(qty);
           break;
         case "CONSUMPTION":
@@ -127,12 +123,8 @@ export class InventoryRepository {
         case "TRANSFER_OUT":
           stock = stock.minus(qty);
           break;
-        case "ADJUSTMENT":
-          stock = stock.plus(qty);
-          break;
       }
     }
-
     return stock.toNumber();
   }
 
@@ -149,6 +141,8 @@ export class InventoryRepository {
 
     const materials = await db.material.findMany({
       where: materialWhere,
+      // TODO: cursor-based pagination if org has >500 active materials
+      take: 500,
       select: {
         id: true,
         itemCode: true,
@@ -167,6 +161,9 @@ export class InventoryRepository {
         projectId,
         ...(materialId ? { materialId } : {}),
       },
+      // TODO: replace with per-material groupBy aggregation for large projects (G15)
+      take: 5000,
+      orderBy: { createdAt: "desc" },
       select: {
         materialId: true,
         type: true,

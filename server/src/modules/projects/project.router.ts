@@ -10,6 +10,7 @@ import { auditService } from "../audit/audit.router.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../common/index.js";
 import { Permissions } from "../auth/permissions.js";
+import { PhaseStatus } from "@prisma/client";
 
 export const projectService = new ProjectService(
   projectRepository,
@@ -124,7 +125,7 @@ const updatePhaseSchema = z.object({
   plannedEndDate: z.coerce.date().optional(),
   actualStartDate: z.coerce.date().optional(),
   actualEndDate: z.coerce.date().optional(),
-  status: z.string().optional(),
+  status: z.nativeEnum(PhaseStatus).optional(),
 });
 
 // ─── Router ───────────────────────────────────────────────────────────────────

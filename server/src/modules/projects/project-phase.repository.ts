@@ -1,4 +1,5 @@
 import { db } from "../../infrastructure/database/client.js";
+import { type PhaseStatus } from "@prisma/client";
 
 export interface CreatePhaseInput {
   projectId: string;
@@ -19,7 +20,7 @@ export interface UpdatePhaseInput {
   plannedEndDate?: Date;
   actualStartDate?: Date;
   actualEndDate?: Date;
-  status?: string;
+  status?: PhaseStatus;
 }
 
 export class ProjectPhaseRepository {
