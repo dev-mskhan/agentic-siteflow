@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db } from "../infrastructure/database/client.js";
 import { redis } from "../infrastructure/redis/client.js";
+import { getQueueRuntimeStatus } from "../infrastructure/queue/runtime.js";
+import { getQueueMetrics } from "../infrastructure/queue/status.js";
 
 const router: IRouter = Router();
 
@@ -48,13 +50,33 @@ router.get("/ready", async (_req, res) => {
   }
 
   const allOk = databaseStatus === "ok" && redisStatus === "ok";
+  const queueStatus = getQueueRuntimeStatus();
 
   res.status(allOk ? 200 : 503).json({
     status: allOk ? "ok" : "degraded",
     checks: {
       database: databaseStatus,
       redis: redisStatus,
+      workers: queueStatus.workers,
+      scheduler: queueStatus.scheduler,
     },
+  });
+});
+
+router.get("/ready/workers", (_req, res) => {
+  const queueStatus = getQueueRuntimeStatus();
+  const ready = queueStatus.workers.status === "ready" && queueStatus.workers.registered > 0;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ok" : "degraded",
+    checks: queueStatus,
+  });
+
+  router.get("/ready/queues", async (_req, res) => {
+    try {
+      res.status(200).json({ status: "ok", queues: await getQueueMetrics() });
+    } catch {
+      res.status(503).json({ status: "degraded", queues: [] });
+    }
   });
 });
 

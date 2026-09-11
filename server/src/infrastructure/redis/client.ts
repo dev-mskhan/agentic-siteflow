@@ -19,6 +19,16 @@ const redis = new Redis(env.REDIS_URL, {
   lazyConnect: true,
 });
 
+async function ensureRedisReady(timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (redis.status !== "ready") {
+    if (Date.now() >= deadline) {
+      throw new Error(`Redis did not become ready within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 redis.on("connect", () => {
   logger.info("Redis connected");
 });
@@ -54,4 +64,4 @@ async function disconnectRedis(): Promise<void> {
   await redis.quit();
 }
 
-export { redis, disconnectRedis };
+export { redis, disconnectRedis, ensureRedisReady };

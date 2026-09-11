@@ -25,6 +25,15 @@ const envSchema = z.object({
   TENANT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1_000),
   // Per-tenant BullMQ job concurrency
   TENANT_JOB_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(5),
+  QUEUE_DEFAULT_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  QUEUE_BACKOFF_DELAY_MS: z.coerce.number().int().positive().default(1_000),
+  QUEUE_BACKOFF_JITTER: z.coerce.number().min(0).max(1).default(0.3),
+  QUEUE_DEFAULT_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
+  QUEUE_HIGH_COST_TIMEOUT_MS: z.coerce.number().int().positive().default(600_000),
+  QUEUE_DEFAULT_CONCURRENCY: z.coerce.number().int().positive().default(10),
+  QUEUE_HIGH_COST_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  QUEUE_COMPLETED_RETENTION_SECONDS: z.coerce.number().int().positive().default(86_400),
+  QUEUE_FAILED_RETENTION_SECONDS: z.coerce.number().int().positive().default(604_800),
   // JWT
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   JWT_EXPIRES_IN: z.string().default("15m"),

@@ -1,6 +1,7 @@
 import { createQueue } from "./index.js";
 import { QUEUES, JOBS } from "./jobs.js";
 import { logger } from "../logger.js";
+import { setSchedulerReady } from "./runtime.js";
 
 /**
  * Register BullMQ repeatable cron jobs for all background worker queues.
@@ -18,12 +19,12 @@ import { logger } from "../logger.js";
  * to fetch all active org IDs from the database and iterate over them.
  */
 export async function scheduleRecurringJobs(): Promise<void> {
+  const complianceQueue = createQueue(QUEUES.COMPLIANCE);
+  const commercialQueue = createQueue(QUEUES.COMMERCIAL);
+  const communicationsQueue = createQueue(QUEUES.COMMUNICATIONS);
+  const tasksQueue = createQueue(QUEUES.TASKS);
+  const queues = [complianceQueue, commercialQueue, communicationsQueue, tasksQueue];
   try {
-    const complianceQueue = createQueue(QUEUES.COMPLIANCE);
-    const commercialQueue = createQueue(QUEUES.COMMERCIAL);
-    const communicationsQueue = createQueue(QUEUES.COMMUNICATIONS);
-    const tasksQueue = createQueue(QUEUES.TASKS);
-
     await Promise.all([
       complianceQueue.add(
         JOBS.CHECK_COMPLIANCE_EXPIRATIONS,
@@ -68,8 +69,12 @@ export async function scheduleRecurringJobs(): Promise<void> {
     ]);
 
     logger.info("Recurring background jobs scheduled successfully");
+    setSchedulerReady(true);
   } catch (err) {
     // Log error but do NOT throw — server should start even if Redis is temporarily unavailable
     logger.error({ err }, "Failed to schedule recurring background jobs");
+    setSchedulerReady(false);
+  } finally {
+    await Promise.all(queues.map((queue) => queue.close()));
   }
 }

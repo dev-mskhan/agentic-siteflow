@@ -1,10 +1,22 @@
 export const QUEUES = {
+  EMAIL: "email",
+  NOTIFICATIONS: "notifications",
+  WEBHOOKS: "webhooks",
+  REPORTS: "reports",
+  FILE_PROCESSING: "file-processing",
+  IMPORTS: "imports",
+  EXPORTS: "exports",
+  ANALYTICS: "analytics",
+  CLEANUP: "cleanup",
+  SCHEDULED_JOBS: "scheduled-jobs",
   DOCUMENTS: "documents",
   COMPLIANCE: "compliance",
   COMMUNICATIONS: "project-communications",
   COMMERCIAL: "commercial",
   TASKS: "tasks",
 } as const;
+
+export const ALL_QUEUES = Object.values(QUEUES);
 
 export const JOBS = {
   DOCUMENT_PROCESS: "DOCUMENT_PROCESS",
