@@ -23,6 +23,7 @@ import {
   calcTaxAmount,
   calcPoTotal,
 } from "./po-calculation.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export class PurchaseOrderService {
   constructor(
@@ -170,6 +171,19 @@ export class PurchaseOrderService {
       oldValue: { status: po.status },
       newValue: { status: "ISSUED", approvedById: userId, issueDate: now },
     });
+
+    if (po.createdById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: po.createdById,
+        type: "SYSTEM",
+        title: "Purchase Order Issued",
+        body: `Purchase Order ${po.poNumber} has been issued.`,
+        entityType: "PurchaseOrder",
+        entityId: po.id,
+        dedupeKey: `PURCHASE_ORDER_ISSUED:${po.id}:${po.createdById}`,
+      });
+    }
 
     return updated;
   }

@@ -249,8 +249,9 @@ export class PaymentApplicationRepository {
   async updateStatus(
     id: string,
     data: Prisma.PaymentApplicationUpdateInput,
+    tx?: Prisma.TransactionClient,
   ): Promise<PaymentApplication> {
-    return db.paymentApplication.update({
+    return (tx ?? db).paymentApplication.update({
       where: { id },
       data,
     });

@@ -18,6 +18,7 @@ import {
   type DocumentFilters,
   type DocumentLinkRecord,
 } from "./document.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export class DocumentService {
   constructor(
@@ -153,6 +154,19 @@ export class DocumentService {
         fileSize: input.fileSize,
       },
     });
+
+    if (updated.createdById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: updated.createdById,
+        type: "SYSTEM",
+        title: "Document Version Added",
+        body: `A new version of "${updated.title}" is available for review.`,
+        entityType: "Document",
+        entityId: documentId,
+        dedupeKey: `DOCUMENT_VERSION_ADDED:${documentId}:${updated.currentVersion}:${updated.createdById}`,
+      });
+    }
 
     return updated;
   }

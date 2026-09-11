@@ -17,6 +17,7 @@ import {
   type QualityFilters,
   type DeficiencyFilters,
 } from "./quality.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export class QualityService {
   constructor(
@@ -217,6 +218,19 @@ export class QualityService {
         projectId: deficiency.projectId,
       },
     });
+
+    if (deficiency.assignedToId && deficiency.assignedToId !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: deficiency.assignedToId,
+        type: "SYSTEM",
+        title: "Quality Deficiency Assigned",
+        body: `Quality deficiency "${deficiency.title}" has been assigned to you.`,
+        entityType: "Deficiency",
+        entityId: deficiency.id,
+        dedupeKey: `DEFICIENCY_ASSIGNED:${deficiency.id}:${deficiency.assignedToId}`,
+      });
+    }
 
     return deficiency;
   }

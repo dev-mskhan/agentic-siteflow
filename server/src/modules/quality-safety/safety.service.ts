@@ -15,6 +15,7 @@ import {
   type CompleteCorrectiveActionInput,
   type SafetyFilters,
 } from "./safety.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export class SafetyService {
   constructor(
@@ -194,6 +195,19 @@ export class SafetyService {
         dueDate: action.dueDate,
       },
     });
+
+    if (action.assignedToId && action.assignedToId !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: action.assignedToId,
+        type: "SYSTEM",
+        title: "Safety Corrective Action Assigned",
+        body: `A corrective action has been assigned to you.`,
+        entityType: "SafetyCorrectiveAction",
+        entityId: action.id,
+        dedupeKey: `SAFETY_ACTION_ASSIGNED:${action.id}:${action.assignedToId}`,
+      });
+    }
 
     return action;
   }

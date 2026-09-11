@@ -3,6 +3,7 @@ import { startComplianceWorker } from "./modules/compliance/compliance.worker.js
 import { startCommunicationWorker } from "./modules/project-communications/communication.worker.js";
 import { startCommercialWorker } from "./modules/commercial/commercial.worker.js";
 import { startTaskWorker } from "./modules/scheduling/task.worker.js";
+import { startNotificationWorker } from "./modules/notifications/notification.worker.js";
 import { logger } from "./infrastructure/logger.js";
 import { setWorkersFailed, setWorkersReady, setWorkersStarting, setWorkersStopped } from "./infrastructure/queue/runtime.js";
 
@@ -22,9 +23,11 @@ export function startAllWorkers() {
     startedWorkers.push(commlWorker);
     const taskWorker = startTaskWorker();
     startedWorkers.push(taskWorker);
-    workers = [docWorker, compWorker, commWorker, commlWorker, taskWorker];
+    const notificationWorker = startNotificationWorker();
+    startedWorkers.push(notificationWorker);
+    workers = [docWorker, compWorker, commWorker, commlWorker, taskWorker, notificationWorker];
     setWorkersReady(workers.length);
-    logger.info("Background workers started successfully (docs, compliance, comms, commercial, tasks)");
+    logger.info("Background workers started successfully (docs, compliance, comms, commercial, tasks, notifications)");
   } catch (err) {
     workers = [];
     void Promise.all(

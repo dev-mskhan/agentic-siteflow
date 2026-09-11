@@ -1,5 +1,6 @@
 import { PaymentApplicationStatus, type PaymentApplication } from "@prisma/client";
 import { NotFoundError, ValidationError } from "../../common/AppError.js";
+import { db } from "../../infrastructure/database/client.js";
 import type { AuditService } from "../audit/audit.service.js";
 import { auditService as defaultAuditService } from "../audit/audit.router.js";
 import { projectRepository as defaultProjectRepository, type ProjectRepository } from "../projects/project.repository.js";
@@ -17,7 +18,7 @@ import {
 } from "./payment-application.types.js";
 import { assertNotSelfApprover } from "./segregation.guard.js";
 import { notificationService } from "../notifications/notification.service.js";
-import { logger } from "../../infrastructure/logger.js";
+import { enqueueNotificationDeliveries } from "../notifications/notification.queue.js";
 
 export class PaymentApplicationService {
   constructor(
@@ -131,11 +132,36 @@ export class PaymentApplicationService {
     // Segregation of duties: submitter cannot approve
     assertNotSelfApprover(app.submittedById, userId, "payment application");
 
-    const approved = await this.appRepo.updateStatus(id, {
-      status: PaymentApplicationStatus.APPROVED,
-      approvedBy: { connect: { id: userId } },
-      approvedAt: new Date(),
+    const result = await db.$transaction(async (tx) => {
+      const approved = await this.appRepo.updateStatus(
+        id,
+        {
+          status: PaymentApplicationStatus.APPROVED,
+          approvedBy: { connect: { id: userId } },
+          approvedAt: new Date(),
+        },
+        tx,
+      );
+      const amount = Number(app.currentPaymentDue).toFixed(2);
+      const notification =
+        app.submittedById !== userId
+          ? await notificationService.create(
+              {
+                orgId,
+                userId: app.submittedById,
+                type: "PAYMENT_APP_APPROVED",
+                title: "Payment Application Approved",
+                body: `Payment Application #${app.applicationNumber} ($${amount}) has been approved.`,
+                entityType: "PaymentApplication",
+                entityId: id,
+                dedupeKey: `PAYMENT_APP_APPROVED:${id}:${app.submittedById}`,
+              },
+              tx,
+            )
+          : null;
+      return { approved, notification };
     });
+    const approved = result.approved;
 
     await this.audit.log({
       orgId,
@@ -147,22 +173,8 @@ export class PaymentApplicationService {
       newValue: { status: approved.status, approvedById: userId },
     });
 
-    // Notify the submitter that their payment application was approved
-    if (app.submittedById !== userId) {
-      const amount = Number(app.currentPaymentDue).toFixed(2);
-      void notificationService
-        .send({
-          orgId,
-          userId: app.submittedById,
-          type: "PAYMENT_APP_APPROVED",
-          title: "Payment Application Approved",
-          body: `Payment Application #${app.applicationNumber} ($${amount}) has been approved.`,
-          entityType: "PaymentApplication",
-          entityId: id,
-        })
-        .catch((err: unknown) => {
-          logger.warn({ err, paymentAppId: id }, "PAYMENT_APP_APPROVED notification failed");
-        });
+    if (result.notification) {
+      await enqueueNotificationDeliveries(result.notification.id);
     }
 
     return approved;
@@ -188,10 +200,34 @@ export class PaymentApplicationService {
     // Segregation of duties
     assertNotSelfApprover(app.submittedById, userId, "payment application");
 
-    const rejected = await this.appRepo.updateStatus(input.id, {
-      status: PaymentApplicationStatus.REJECTED,
-      rejectionReason: input.rejectionReason,
+    const result = await db.$transaction(async (tx) => {
+      const rejected = await this.appRepo.updateStatus(
+        input.id,
+        {
+          status: PaymentApplicationStatus.REJECTED,
+          rejectionReason: input.rejectionReason,
+        },
+        tx,
+      );
+      const notification =
+        app.submittedById !== userId
+          ? await notificationService.create(
+              {
+                orgId,
+                userId: app.submittedById,
+                type: "PAYMENT_APP_REJECTED",
+                title: "Payment Application Rejected",
+                body: `Payment Application #${app.applicationNumber} has been rejected.${input.rejectionReason ? ` Reason: ${input.rejectionReason}` : ""}`,
+                entityType: "PaymentApplication",
+                entityId: input.id,
+                dedupeKey: `PAYMENT_APP_REJECTED:${input.id}:${app.submittedById}`,
+              },
+              tx,
+            )
+          : null;
+      return { rejected, notification };
     });
+    const rejected = result.rejected;
 
     await this.audit.log({
       orgId,
@@ -203,21 +239,8 @@ export class PaymentApplicationService {
       newValue: { status: rejected.status, rejectionReason: input.rejectionReason },
     });
 
-    // Notify the submitter that their payment application was rejected
-    if (app.submittedById !== userId) {
-      void notificationService
-        .send({
-          orgId,
-          userId: app.submittedById,
-          type: "PAYMENT_APP_REJECTED",
-          title: "Payment Application Rejected",
-          body: `Payment Application #${app.applicationNumber} has been rejected.${input.rejectionReason ? ` Reason: ${input.rejectionReason}` : ""}`,
-          entityType: "PaymentApplication",
-          entityId: input.id,
-        })
-        .catch((err: unknown) => {
-          logger.warn({ err, paymentAppId: input.id }, "PAYMENT_APP_REJECTED notification failed");
-        });
+    if (result.notification) {
+      await enqueueNotificationDeliveries(result.notification.id);
     }
 
     return rejected;

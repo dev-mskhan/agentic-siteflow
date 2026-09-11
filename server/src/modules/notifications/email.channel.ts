@@ -1,8 +1,12 @@
 import type { NotificationType } from "@prisma/client";
 import { db } from "../../infrastructure/database/client.js";
-import { emailProvider } from "../../infrastructure/email/index.js";
+import {
+  emailProvider,
+  isEmailProviderConfigured,
+} from "../../infrastructure/email/index.js";
 import { renderEmailTemplate } from "../../infrastructure/email/templates.js";
 import { logger } from "../../infrastructure/logger.js";
+import { NonRetryableNotificationError } from "./notification.errors.js";
 
 /**
  * Email delivery channel for notifications.
@@ -48,12 +52,19 @@ export async function sendEmailNotification(
 
     if (!user?.email) {
       logger.debug({ userId }, "Email notification skipped — no email address on user");
-      return;
+      throw new NonRetryableNotificationError("Recipient has no email address");
+    }
+    if (!isEmailProviderConfigured()) {
+      throw new NonRetryableNotificationError("Email provider is disabled");
     }
 
     const { subject, html, text } = renderEmailTemplate(type, title, body, entityType, entityId);
     await emailProvider().send({ to: user.email, subject, html, text });
   } catch (err) {
-    logger.warn({ err, userId, type }, "Email notification dispatch failed");
+    logger.warn(
+      { userId, type, error: err instanceof Error ? err.message : "unknown error" },
+      "Email notification dispatch failed",
+    );
+    throw err;
   }
 }

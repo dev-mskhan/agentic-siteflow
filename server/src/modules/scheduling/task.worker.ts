@@ -48,6 +48,7 @@ async function processOverdueTasksForOrg(orgId: string): Promise<{ notified: num
         body: `Task "${task.name}" was due on ${formatDate(task.plannedEndDate!)}. Please update its status.`,
         entityType: "Task",
         entityId: task.id,
+        dedupeKey: `TASK_OVERDUE:${task.id}:${task.assigneeId}:${formatDate(task.plannedEndDate!)}`,
       });
       notified++;
     } catch (err) {

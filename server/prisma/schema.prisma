@@ -317,6 +317,20 @@ enum NotificationType {
   SYSTEM
 }
 
+enum NotificationDeliveryChannel {
+  SOCKET
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  DEAD
+}
+
 enum PhaseStatus {
   ACTIVE
   INACTIVE
@@ -2367,16 +2381,40 @@ model Notification {
   body       String
   entityType String?
   entityId   String?
+  dedupeKey  String?
   isRead     Boolean          @default(false)
   readAt     DateTime?
   createdAt  DateTime         @default(now())
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
 
   @@index([orgId, userId, isRead])
   @@index([userId, createdAt])
+  @@unique([orgId, dedupeKey])
   @@map("notifications")
+}
+
+model NotificationDelivery {
+  id            String                       @id @default(cuid())
+  notificationId String
+  channel       NotificationDeliveryChannel
+  status        NotificationDeliveryStatus   @default(PENDING)
+  attempts      Int                          @default(0)
+  availableAt   DateTime                     @default(now())
+  lastAttemptAt DateTime?
+  sentAt        DateTime?
+  lastError     String?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([status, availableAt])
+  @@index([notificationId])
+  @@map("notification_deliveries")
 }
 
 model NotificationPreference {
@@ -2398,7 +2436,6 @@ model NotificationPreference {
   @@index([userId, orgId])
   @@map("notification_preferences")
 }
-
 
 
 

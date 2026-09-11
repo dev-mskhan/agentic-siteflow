@@ -54,3 +54,7 @@ export async function getEmailProvider(): Promise<EmailProvider> {
 export function emailProvider(): EmailProvider {
   return _provider ?? noopProvider;
 }
+
+export function isEmailProviderConfigured(): boolean {
+  return env.EMAIL_PROVIDER !== "none";
+}

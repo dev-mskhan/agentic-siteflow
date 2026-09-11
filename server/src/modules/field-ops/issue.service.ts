@@ -13,6 +13,7 @@ import {
 } from "./issue.repository.js";
 import type { IssueFilters } from "./field-ops.types.js";
 import { FIELD_OPS_AUDIT_ACTIONS, FIELD_OPS_DOMAIN_EVENTS } from "./field-ops.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export type CreateIssueInput = Omit<CreateIssueData, "orgId" | "projectId" | "createdById">;
 export type UpdateIssueInput = Partial<Omit<CreateIssueInput, "status">> & { status?: Issue["status"] };
@@ -57,6 +58,18 @@ export class IssueService {
     }
     await this.validateTask(orgId, projectId, input.linkedTaskId);
     const issue = await this.repo.create({ ...input, orgId, projectId, createdById: userId });
+    if (issue.responsiblePartyId && issue.responsiblePartyId !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: issue.responsiblePartyId,
+        type: "SYSTEM",
+        title: "Field Issue Assigned",
+        body: `You have been assigned field issue "${issue.title}".`,
+        entityType: "Issue",
+        entityId: issue.id,
+        dedupeKey: `ISSUE_ASSIGNED:${issue.id}:${issue.responsiblePartyId}`,
+      });
+    }
     await this.audit.log({
       orgId,
       userId,
@@ -137,6 +150,18 @@ export class IssueService {
       entityId: issueId,
       newValue: { event: FIELD_OPS_DOMAIN_EVENTS.ISSUE_RESOLVED, issueId, projectId: issue.projectId },
     });
+    if (issue.createdById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: issue.createdById,
+        type: "SYSTEM",
+        title: "Field Issue Resolved",
+        body: `Field issue "${issue.title}" has been resolved.`,
+        entityType: "Issue",
+        entityId: issue.id,
+        dedupeKey: `ISSUE_RESOLVED:${issue.id}:${issue.createdById}`,
+      });
+    }
     return updated;
   }
 

@@ -20,7 +20,7 @@ import {
 } from "./change-order.types.js";
 import { assertNotSelfApprover } from "./segregation.guard.js";
 import { notificationService } from "../notifications/notification.service.js";
-import { logger } from "../../infrastructure/logger.js";
+import { enqueueNotificationDeliveries } from "../notifications/notification.queue.js";
 
 export class ChangeOrderService {
   constructor(
@@ -131,7 +131,7 @@ export class ChangeOrderService {
     // 1. Update ChangeOrder status to APPROVED
     // 2. Adjust BudgetItem approvedChanges & revisedAmount for each line item cost code
     // 3. If contractId present, update SubcontractorContract.contractValue
-    const approved = await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       const now = new Date();
       const updatedCo = await tx.changeOrder.update({
         where: { id: input.id },
@@ -171,8 +171,25 @@ export class ChangeOrderService {
         }
       }
 
-      return updatedCo;
+      const notification =
+        co.requestedById !== userId
+          ? await notificationService.create(
+              {
+                orgId,
+                userId: co.requestedById,
+                type: "CHANGE_ORDER_APPROVED",
+                title: "Change Order Approved",
+                body: `Change Order "${co.title}" (${co.changeOrderNumber}) has been approved.`,
+                entityType: "ChangeOrder",
+                entityId: input.id,
+                dedupeKey: `CHANGE_ORDER_APPROVED:${input.id}:${co.requestedById}`,
+              },
+              tx,
+            )
+          : null;
+      return { updatedCo, notification };
     });
+    const approved = result.updatedCo;
 
     await this.audit.log({
       orgId,
@@ -188,21 +205,8 @@ export class ChangeOrderService {
       },
     });
 
-    // Notify the requester that their change order was approved
-    if (co.requestedById !== userId) {
-      void notificationService
-        .send({
-          orgId,
-          userId: co.requestedById,
-          type: "CHANGE_ORDER_APPROVED",
-          title: "Change Order Approved",
-          body: `Change Order "${co.title}" (${co.changeOrderNumber}) has been approved.`,
-          entityType: "ChangeOrder",
-          entityId: input.id,
-        })
-        .catch((err: unknown) => {
-          logger.warn({ err, changeOrderId: input.id }, "CHANGE_ORDER_APPROVED notification failed");
-        });
+    if (result.notification) {
+      await enqueueNotificationDeliveries(result.notification.id);
     }
 
     await cacheDel(
@@ -234,10 +238,34 @@ export class ChangeOrderService {
     // Segregation of duties
     assertNotSelfApprover(co.requestedById, userId, "change order");
 
-    const rejected = await this.changeOrderRepo.updateStatus(input.id, {
-      status: ChangeOrderStatus.REJECTED,
-      rejectionReason: input.rejectionReason,
+    const result = await db.$transaction(async (tx) => {
+      const rejected = await this.changeOrderRepo.updateStatus(
+        input.id,
+        {
+          status: ChangeOrderStatus.REJECTED,
+          rejectionReason: input.rejectionReason,
+        },
+        tx,
+      );
+      const notification =
+        co.requestedById !== userId
+          ? await notificationService.create(
+              {
+                orgId,
+                userId: co.requestedById,
+                type: "CHANGE_ORDER_REJECTED",
+                title: "Change Order Rejected",
+                body: `Change Order "${co.title}" (${co.changeOrderNumber}) has been rejected.${input.rejectionReason ? ` Reason: ${input.rejectionReason}` : ""}`,
+                entityType: "ChangeOrder",
+                entityId: input.id,
+                dedupeKey: `CHANGE_ORDER_REJECTED:${input.id}:${co.requestedById}`,
+              },
+              tx,
+            )
+          : null;
+      return { rejected, notification };
     });
+    const rejected = result.rejected;
 
     await this.audit.log({
       orgId,
@@ -249,21 +277,8 @@ export class ChangeOrderService {
       newValue: { status: rejected.status, rejectionReason: input.rejectionReason },
     });
 
-    // Notify the requester that their change order was rejected
-    if (co.requestedById !== userId) {
-      void notificationService
-        .send({
-          orgId,
-          userId: co.requestedById,
-          type: "CHANGE_ORDER_REJECTED",
-          title: "Change Order Rejected",
-          body: `Change Order "${co.title}" (${co.changeOrderNumber}) has been rejected.${input.rejectionReason ? ` Reason: ${input.rejectionReason}` : ""}`,
-          entityType: "ChangeOrder",
-          entityId: input.id,
-        })
-        .catch((err: unknown) => {
-          logger.warn({ err, changeOrderId: input.id }, "CHANGE_ORDER_REJECTED notification failed");
-        });
+    if (result.notification) {
+      await enqueueNotificationDeliveries(result.notification.id);
     }
 
     return rejected;

@@ -19,6 +19,7 @@ import {
   type RecordDelayInput,
   type ScheduleDeliveryInput,
 } from "./delivery.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export class DeliveryService {
   constructor(
@@ -140,6 +141,18 @@ export class DeliveryService {
       oldValue: { expectedDate: delivery.expectedDate },
       newValue: { expectedDate: newDate, delayedDays, delayReason: input.delayReason },
     });
+    if (delivery.purchaseOrder && delivery.purchaseOrder.createdById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: delivery.purchaseOrder.createdById,
+        type: "SYSTEM",
+        title: "Purchase Order Delivery Delayed",
+        body: `Delivery ${delivery.deliveryNumber} for PO ${delivery.purchaseOrder.poNumber} is delayed by ${delayedDays} day(s).`,
+        entityType: "Delivery",
+        entityId: delivery.id,
+        dedupeKey: `DELIVERY_DELAYED:${delivery.id}:${newDate.toISOString().slice(0, 10)}:${delivery.purchaseOrder.createdById}`,
+      });
+    }
 
     return updated;
   }
@@ -259,6 +272,18 @@ export class DeliveryService {
         totalRejected,
       },
     });
+    if (delivery.purchaseOrder && delivery.purchaseOrder.createdById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: delivery.purchaseOrder.createdById,
+        type: "SYSTEM",
+        title: "Purchase Order Delivery Received",
+        body: `Delivery ${delivery.deliveryNumber} for PO ${delivery.purchaseOrder.poNumber} has been received.`,
+        entityType: "Delivery",
+        entityId: delivery.id,
+        dedupeKey: `DELIVERY_RECEIVED:${delivery.id}:${actualDate.toISOString()}:${delivery.purchaseOrder.createdById}`,
+      });
+    }
 
     return updated;
   }

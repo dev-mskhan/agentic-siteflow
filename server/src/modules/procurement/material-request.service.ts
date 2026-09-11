@@ -13,6 +13,7 @@ import {
   type CreateMaterialRequestInput,
   type MaterialRequestFilters,
 } from "./material-request.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export interface ProjectLookup {
   findById(orgId: string, projectId: string): Promise<{ id: string; status: string } | null>;
@@ -109,6 +110,18 @@ export class MaterialRequestService {
       oldValue: { status: request.status },
       newValue: { status: "SUBMITTED" },
     });
+    if (request.requestedById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: request.requestedById,
+        type: "SYSTEM",
+        title: "Material Request Approved",
+        body: `Material request ${request.requestNumber} has been approved.`,
+        entityType: "MaterialRequest",
+        entityId: request.id,
+        dedupeKey: `MATERIAL_REQUEST_APPROVED:${request.id}:${request.requestedById}`,
+      });
+    }
 
     return updated;
   }
@@ -141,6 +154,18 @@ export class MaterialRequestService {
       oldValue: { status: request.status },
       newValue: { status: "APPROVED", approvedById: userId },
     });
+    if (request.requestedById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: request.requestedById,
+        type: "SYSTEM",
+        title: "Material Request Rejected",
+        body: `Material request ${request.requestNumber} was rejected.`,
+        entityType: "MaterialRequest",
+        entityId: request.id,
+        dedupeKey: `MATERIAL_REQUEST_REJECTED:${request.id}:${request.requestedById}`,
+      });
+    }
 
     return updated;
   }

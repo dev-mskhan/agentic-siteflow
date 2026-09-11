@@ -154,6 +154,7 @@ export class ComplianceService {
             body: `"${record.title}" has expired as of ${record.expirationDate.toISOString().split("T")[0]}. Immediate renewal required.`,
             entityType: "ComplianceRecord",
             entityId: record.id,
+            dedupeKey: `COMPLIANCE_EXPIRED:${record.id}:${record.responsibleUserId}:${record.expirationDate.toISOString().split("T")[0]}`,
           });
         }
 
@@ -190,6 +191,7 @@ export class ComplianceService {
             body: `"${record.title}" expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""} on ${record.expirationDate?.toISOString().split("T")[0]}. Please renew.`,
             entityType: "ComplianceRecord",
             entityId: record.id,
+            dedupeKey: `COMPLIANCE_EXPIRING:${record.id}:${record.responsibleUserId}:${record.expirationDate?.toISOString().split("T")[0] ?? "unknown"}`,
           });
         }
 

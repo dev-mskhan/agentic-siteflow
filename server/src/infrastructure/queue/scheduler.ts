@@ -23,7 +23,8 @@ export async function scheduleRecurringJobs(): Promise<void> {
   const commercialQueue = createQueue(QUEUES.COMMERCIAL);
   const communicationsQueue = createQueue(QUEUES.COMMUNICATIONS);
   const tasksQueue = createQueue(QUEUES.TASKS);
-  const queues = [complianceQueue, commercialQueue, communicationsQueue, tasksQueue];
+  const notificationsQueue = createQueue(QUEUES.NOTIFICATIONS);
+  const queues = [complianceQueue, commercialQueue, communicationsQueue, tasksQueue, notificationsQueue];
   try {
     await Promise.all([
       complianceQueue.add(
@@ -64,6 +65,14 @@ export async function scheduleRecurringJobs(): Promise<void> {
         {
           repeat: { pattern: "0 7 * * *" },
           jobId: `recurring:${JOBS.CHECK_OVERDUE_TASKS}`,
+        },
+      ),
+      notificationsQueue.add(
+        JOBS.RECONCILE_NOTIFICATION_DELIVERIES,
+        {},
+        {
+          repeat: { every: 60_000 },
+          jobId: `recurring:${JOBS.RECONCILE_NOTIFICATION_DELIVERIES}`,
         },
       ),
     ]);

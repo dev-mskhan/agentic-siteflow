@@ -1,11 +1,10 @@
-import type { Notification, NotificationType } from "@prisma/client";
+import { Prisma as PrismaRuntime, type Notification, type NotificationType, type Prisma } from "@prisma/client";
 import {
   notificationRepository,
   type NotificationFilters,
 } from "./notification.repository.js";
-import { emitToUser } from "../../infrastructure/socket/index.js";
-import { sendEmailNotification } from "./email.channel.js";
-import { sendWhatsAppNotification } from "./whatsapp.channel.js";
+import { db } from "../../infrastructure/database/client.js";
+import { enqueueNotificationDeliveries } from "./notification.queue.js";
 import { logger } from "../../infrastructure/logger.js";
 
 export interface SendNotificationInput {
@@ -19,60 +18,72 @@ export interface SendNotificationInput {
   entityType?: string;
   /** Optional entity ID for deep-linking */
   entityId?: string;
+  /** Stable key used to prevent duplicate logical notifications. */
+  dedupeKey?: string;
 }
 
 export class NotificationService {
-  /**
-   * Persist a notification and fan out to all delivery channels.
-   *
-   * Delivery order:
-   *  1. DB persist (source of truth — always happens first)
-   *  2. Socket.io emit (real-time, best-effort)
-   *  3. Email (preference-gated, best-effort)
-   *  4. WhatsApp (preference-gated, best-effort)
-   *
-   * Channels 2–4 are individually wrapped in try/catch.
-   * A failure in any channel never aborts the others or rolls back the DB row.
-   */
   async send(input: SendNotificationInput): Promise<void> {
-    // 1. Persist — this is the only step that can throw (DB errors bubble up)
-    const notif = await notificationRepository.create(input);
+    await this.create(input);
+  }
 
-    // 2. Real-time socket push
-    try {
-      emitToUser(input.userId, "notification", notif);
-    } catch (err) {
-      logger.warn(
-        { err, userId: input.userId, notifId: notif.id },
-        "Socket emit failed for notification",
-      );
+  async create(
+    input: SendNotificationInput,
+    tx: Prisma.TransactionClient = db,
+  ): Promise<Notification> {
+    const existing = input.dedupeKey
+      ? await notificationRepository.findByDedupeKey(input.orgId, input.dedupeKey, tx)
+      : null;
+    if (existing) {
+      return existing;
     }
 
-    // 3. Email (checks user preference + EMAIL_PROVIDER env internally)
-    void sendEmailNotification(
-      input.userId,
-      input.orgId,
-      input.type,
-      input.title,
-      input.body,
-      input.entityType,
-      input.entityId,
-    ).catch((err: unknown) => {
-      logger.warn({ err, userId: input.userId, type: input.type }, "Email channel error");
+    let notification: Notification;
+    try {
+      notification = await notificationRepository.create(input, tx);
+    } catch (error) {
+      if (
+        input.dedupeKey &&
+        error instanceof PrismaRuntime.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const concurrent = await notificationRepository.findByDedupeKey(
+          input.orgId,
+          input.dedupeKey,
+          tx,
+        );
+        if (concurrent) return concurrent;
+      }
+      throw error;
+    }
+    const preference = await tx.notificationPreference.findUnique({
+      where: {
+        userId_orgId_type: {
+          userId: input.userId,
+          orgId: input.orgId,
+          type: input.type,
+        },
+      },
+      select: { emailEnabled: true, whatsappEnabled: true },
     });
 
-    // 4. WhatsApp (checks user preference + WHATSAPP_PROVIDER env internally)
-    void sendWhatsAppNotification(
-      input.userId,
-      input.orgId,
-      input.type,
-      input.title,
-      input.body,
-      input.entityType,
-      input.entityId,
-    ).catch((err: unknown) => {
-      logger.warn({ err, userId: input.userId, type: input.type }, "WhatsApp channel error");
-    });
+    const channels: Array<"SOCKET" | "EMAIL" | "WHATSAPP"> = ["SOCKET"];
+    if (preference?.emailEnabled ?? true) channels.push("EMAIL");
+    if (preference?.whatsappEnabled ?? true) channels.push("WHATSAPP");
+    await notificationRepository.createDeliveries(notification.id, channels, tx);
+
+    if (tx === db) {
+      void enqueueNotificationDeliveries(notification.id).catch((error: unknown) => {
+        logger.warn(
+          {
+            notificationId: notification.id,
+            error: error instanceof Error ? error.message : "unknown error",
+          },
+          "Notification delivery enqueue failed; reconciliation will retry",
+        );
+      });
+    }
+    return notification;
   }
 
   async list(

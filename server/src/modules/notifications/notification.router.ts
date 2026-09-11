@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, authedProcedure } from "../../api/trpc/trpc.js";
 import { notificationService } from "./notification.service.js";
 import { notificationRepository } from "./notification.repository.js";
+import { TRPCError } from "@trpc/server";
 
 export const notificationRouter = router({
   /**
@@ -70,5 +71,12 @@ export const notificationRouter = router({
   countUnread: authedProcedure.query(async ({ ctx }) => {
     const count = await notificationService.countUnread(ctx.user!.id, ctx.orgId!);
     return { count };
+  }),
+
+  deliveryStats: authedProcedure.query(async ({ ctx }) => {
+    if (ctx.user?.role !== "ADMIN") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+    }
+    return notificationRepository.getDeliveryStats(ctx.orgId!);
   }),
 });

@@ -50,7 +50,7 @@ const connection: ConnectionOptions = parseRedisConnection();
  * const notificationsQueue = createQueue("notifications");
  * await notificationsQueue.add("send-email", { userId: "123" });
  */
-function createQueue(name: string): Queue {
+export function createQueue(name: string): Queue {
   return new Queue(name, {
     connection,
     defaultJobOptions: getDefaultJobOptions(name),
@@ -69,7 +69,7 @@ function createQueue(name: string): Queue {
  *   await sendEmail(job.data);
  * });
  */
-function createWorker<T = unknown, R = unknown, N extends string = string>(
+export function createWorker<T = unknown, R = unknown, N extends string = string>(
   name: string,
   processor: Processor<T, R, N>,
 ): Worker<T, R, N> {
@@ -190,5 +190,3 @@ async function withTimeout<R>(promise: Promise<R>, timeoutMs: number, job: Job):
     if (timer) clearTimeout(timer);
   }
 }
-
-export { createQueue, createWorker };

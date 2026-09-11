@@ -29,3 +29,7 @@ function resolveWhatsAppProvider(): WhatsAppProvider {
 }
 
 export const whatsappProvider: WhatsAppProvider = resolveWhatsAppProvider();
+
+export function isWhatsAppProviderConfigured(): boolean {
+  return env.WHATSAPP_PROVIDER !== "none";
+}

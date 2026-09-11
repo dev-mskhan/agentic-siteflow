@@ -1,8 +1,12 @@
 import type { NotificationType } from "@prisma/client";
 import { db } from "../../infrastructure/database/client.js";
-import { whatsappProvider } from "../../infrastructure/whatsapp/index.js";
+import {
+  isWhatsAppProviderConfigured,
+  whatsappProvider,
+} from "../../infrastructure/whatsapp/index.js";
 import { getWhatsAppTemplate } from "../../infrastructure/whatsapp/templates.js";
 import { logger } from "../../infrastructure/logger.js";
+import { NonRetryableNotificationError } from "./notification.errors.js";
 
 /**
  * Normalize a phone number to E.164 format.
@@ -57,22 +61,29 @@ export async function sendWhatsAppNotification(
 
     if (!user?.phone) {
       logger.debug({ userId }, "WhatsApp notification skipped — no phone number on user");
-      return;
+      throw new NonRetryableNotificationError("Recipient has no phone number");
     }
 
     const e164 = normalizeToE164(user.phone);
     if (!e164) {
       logger.warn(
-        { userId, phone: user.phone },
+        { userId },
         "WhatsApp notification skipped — phone number could not be normalized to E.164",
       );
-      return;
+      throw new NonRetryableNotificationError("Recipient phone number is invalid");
+    }
+    if (!isWhatsAppProviderConfigured()) {
+      throw new NonRetryableNotificationError("WhatsApp provider is disabled");
     }
 
     const template = getWhatsAppTemplate(type);
     const components = template.buildComponents(title, body);
     await whatsappProvider.sendTemplate(e164, template.templateName, components);
   } catch (err) {
-    logger.warn({ err, userId, type }, "WhatsApp notification dispatch failed");
+    logger.warn(
+      { userId, type, error: err instanceof Error ? err.message : "unknown error" },
+      "WhatsApp notification dispatch failed",
+    );
+    throw err;
   }
 }

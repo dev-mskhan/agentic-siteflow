@@ -47,6 +47,7 @@ async function processOverdueInvoicesForOrg(orgId: string) {
       body: `Invoice ${inv.invoiceNumber} was due on ${dueDateStr}. Outstanding: $${outstanding.toFixed(2)}.`,
       entityType: "Invoice",
       entityId: inv.id,
+      dedupeKey: `INVOICE_OVERDUE:${inv.id}:${inv.createdById}:${dueDateStr}`,
     });
 
     // Also notify the approver if different from creator
@@ -59,6 +60,7 @@ async function processOverdueInvoicesForOrg(orgId: string) {
         body: `Invoice ${inv.invoiceNumber} was due on ${dueDateStr}. Outstanding: $${outstanding.toFixed(2)}.`,
         entityType: "Invoice",
         entityId: inv.id,
+        dedupeKey: `INVOICE_OVERDUE:${inv.id}:${inv.approvedById}:${dueDateStr}`,
       });
     }
   }
@@ -76,6 +78,7 @@ async function processPendingPaymentApplicationsForOrg(orgId: string) {
     where: { orgId, role: { in: ["ADMIN", "BILLING"] } },
     select: { userId: true },
   });
+  const reminderDate = new Date().toISOString().split("T")[0];
 
   for (const app of pendingApps) {
     // Keep existing audit log
@@ -99,6 +102,7 @@ async function processPendingPaymentApplicationsForOrg(orgId: string) {
       body: `Payment Application #${app.applicationNumber} (${app.currentPaymentDue ? `$${Number(app.currentPaymentDue).toFixed(2)}` : "amount pending"}) is still awaiting review.`,
       entityType: "PaymentApplication",
       entityId: app.id,
+      dedupeKey: `PAYMENT_APP_PENDING:${app.id}:${app.submittedById}:${reminderDate}`,
     });
 
     // Notify org reviewers (ADMIN/BILLING)
@@ -112,6 +116,7 @@ async function processPendingPaymentApplicationsForOrg(orgId: string) {
           body: `Payment Application #${app.applicationNumber} has been waiting for review. Please action it.`,
           entityType: "PaymentApplication",
           entityId: app.id,
+          dedupeKey: `PAYMENT_APP_PENDING:${app.id}:${reviewer.userId}:${reminderDate}`,
         });
       }
     }

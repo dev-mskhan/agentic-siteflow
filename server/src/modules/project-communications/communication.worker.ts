@@ -56,6 +56,7 @@ async function processOverdueCommunicationsForOrg(orgId: string) {
       body: `RFI ${rfi.rfiNumber}: "${rfi.title}" was due on ${rfi.dueDate?.toISOString().split("T")[0]}. Please respond or reassign.`,
       entityType: "Rfi",
       entityId: rfi.id,
+      dedupeKey: `RFI_OVERDUE:${rfi.id}:${recipientId}:${rfi.dueDate?.toISOString().split("T")[0] ?? "unknown"}`,
     });
   }
 
@@ -104,6 +105,7 @@ async function processOverdueCommunicationsForOrg(orgId: string) {
       body: `Submittal ${sub.submittalNumber} Rev.${sub.revision}: "${sub.title}" was due on ${sub.dueDate?.toISOString().split("T")[0]}. Please complete review.`,
       entityType: "Submittal",
       entityId: sub.id,
+      dedupeKey: `SUBMITTAL_OVERDUE:${sub.id}:${recipientId}:${sub.dueDate?.toISOString().split("T")[0] ?? "unknown"}`,
     });
   }
 

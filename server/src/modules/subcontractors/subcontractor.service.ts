@@ -25,6 +25,7 @@ import {
   type SubcontractorFilters,
   type UpdateSubcontractorInput,
 } from "./subcontractor.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 
 export class SubcontractorService {
   constructor(
@@ -236,6 +237,18 @@ export class SubcontractorService {
       oldValue: { status: contract.status },
       newValue: { status: newStatus },
     });
+    if (contract.createdById !== userId) {
+      await notificationService.send({
+        orgId,
+        userId: contract.createdById,
+        type: "SYSTEM",
+        title: "Subcontractor Contract Status Changed",
+        body: `Contract ${contract.contractNumber} changed from ${contract.status} to ${newStatus}.`,
+        entityType: "SubcontractorContract",
+        entityId: contractId,
+        dedupeKey: `SUBCONTRACTOR_CONTRACT_STATUS:${contractId}:${newStatus}:${contract.createdById}`,
+      });
+    }
 
     if (newStatus === "ACTIVE") {
       await this.audit.log({

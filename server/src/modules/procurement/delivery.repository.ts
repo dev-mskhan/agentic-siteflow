@@ -6,6 +6,10 @@ import type {
 } from "./delivery.types.js";
 
 export type DeliveryWithItems = Delivery & {
+  purchaseOrder?: {
+    poNumber: string;
+    createdById: string;
+  };
   receiptItems: (DeliveryReceiptItem & {
     poItem?: {
       id: string;
@@ -61,6 +65,7 @@ export class DeliveryRepository {
     return db.delivery.findFirst({
       where: { id, orgId },
       include: {
+        purchaseOrder: { select: { poNumber: true, createdById: true } },
         receiptItems: {
           include: {
             poItem: {
@@ -82,6 +87,7 @@ export class DeliveryRepository {
     return db.delivery.findMany({
       where: { orgId, purchaseOrderId },
       include: {
+        purchaseOrder: { select: { poNumber: true, createdById: true } },
         receiptItems: {
           include: {
             poItem: {
@@ -263,4 +269,3 @@ export class DeliveryRepository {
 }
 
 export const deliveryRepository = new DeliveryRepository();
-

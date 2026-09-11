@@ -30,7 +30,6 @@ import type { ScheduleBaselineRepository } from "./schedule-baseline.repository.
 import { scheduleBaselineRepository } from "./schedule-baseline.repository.js";
 import { TASK_DOMAIN_EVENTS } from "./task.types.js";
 import { notificationService } from "../notifications/notification.service.js";
-import { logger } from "../../infrastructure/logger.js";
 
 function serializeHistoryValue(value: unknown): string | null | undefined {
   if (value === undefined) return undefined;
@@ -125,19 +124,16 @@ export class TaskService {
 
     // Notify the assignee if one was set at creation time
     if (task.assigneeId && task.assigneeId !== userId) {
-      void notificationService
-        .send({
-          orgId,
-          userId: task.assigneeId,
-          type: "TASK_ASSIGNED",
-          title: "Task Assigned to You",
-          body: `You have been assigned to "${task.name}".`,
-          entityType: "Task",
-          entityId: task.id,
-        })
-        .catch((err: unknown) => {
-          logger.warn({ err, taskId: task.id }, "TASK_ASSIGNED notification failed");
-        });
+      await notificationService.send({
+        orgId,
+        userId: task.assigneeId,
+        type: "TASK_ASSIGNED",
+        title: "Task Assigned to You",
+        body: `You have been assigned to "${task.name}".`,
+        entityType: "Task",
+        entityId: task.id,
+        dedupeKey: `TASK_ASSIGNED:${task.id}:${task.assigneeId}`,
+      });
     }
 
     return task;
@@ -224,19 +220,16 @@ export class TaskService {
       input.assigneeId &&
       input.assigneeId !== userId
     ) {
-      void notificationService
-        .send({
-          orgId,
-          userId: input.assigneeId,
-          type: "TASK_ASSIGNED",
-          title: "Task Assigned to You",
-          body: `You have been assigned to "${updated.name}".`,
-          entityType: "Task",
-          entityId: taskId,
-        })
-        .catch((err: unknown) => {
-          logger.warn({ err, taskId }, "TASK_ASSIGNED notification failed on update");
-        });
+      await notificationService.send({
+        orgId,
+        userId: input.assigneeId,
+        type: "TASK_ASSIGNED",
+        title: "Task Assigned to You",
+        body: `You have been assigned to "${updated.name}".`,
+        entityType: "Task",
+        entityId: taskId,
+        dedupeKey: `TASK_ASSIGNED:${taskId}:${input.assigneeId}`,
+      });
     }
 
     if (task.status !== "DONE" && input.status === "DONE") {
