@@ -66,6 +66,13 @@ const envSchema = z.object({
   S3_ACCESS_KEY: z.string().default("minioadmin"),
   S3_SECRET_KEY: z.string().default("minioadmin"),
   S3_BUCKET: z.string().default("siteflow-documents"),
+  // ── Observability (OpenTelemetry → SigNoz) ─────────────────────────────────
+  // OTLP collector endpoint — default targets local docker-compose SigNoz setup
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().default("http://localhost:4318"),
+  // Service name sent to SigNoz for filtering
+  OTEL_SERVICE_NAME: z.string().default("siteflow-server"),
+  // Set to "true" to disable OTEL entirely (useful in test environments)
+  OTEL_SDK_DISABLED: z.coerce.boolean().default(false),
 });
 
 export type Env = z.infer<typeof envSchema>;

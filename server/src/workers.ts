@@ -1,3 +1,6 @@
+// ⚠️  OTEL MUST be imported first — before any other module.
+import "./infrastructure/observability/tracer.js";
+
 import { startDocumentWorker } from "./modules/documents/document.worker.js";
 import { startComplianceWorker } from "./modules/compliance/compliance.worker.js";
 import { startCommunicationWorker } from "./modules/project-communications/communication.worker.js";

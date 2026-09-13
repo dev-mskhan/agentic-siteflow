@@ -1,3 +1,7 @@
+// ⚠️  OTEL MUST be imported first — before any other module.
+// It monkey-patches HTTP, Express, Redis, and Prisma at load time.
+import "./infrastructure/observability/tracer.js";
+
 import http from "http";
 import { env } from "./config/index.js";
 import { logger } from "./infrastructure/logger.js";

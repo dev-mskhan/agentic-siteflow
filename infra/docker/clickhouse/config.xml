@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!--
+  ClickHouse config for SigNoz local development.
+  Minimal settings — keeps the container lightweight.
+-->
+<clickhouse>
+  <!-- Allow external connections (needed for SigNoz to connect) -->
+  <listen_host>0.0.0.0</listen_host>
+
+  <!-- ZooKeeper coordination for distributed tables (used by SigNoz schema) -->
+  <zookeeper>
+    <node>
+      <host>zookeeper</host>
+      <port>2181</port>
+    </node>
+  </zookeeper>
+
+  <!-- Reduce logging noise in development -->
+  <logger>
+    <level>warning</level>
+    <console>1</console>
+  </logger>
+</clickhouse>
